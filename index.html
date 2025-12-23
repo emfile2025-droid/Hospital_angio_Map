@@ -8,12 +8,11 @@
     <meta name="theme-color" content="#005088">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Angio Status">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="manifest" href="manifest.json">
 
     <style>
-        /* CSSはVer 3.3.0と同じものを維持 */
+        /* CSS Same as Ver 3.3.0 */
         :root { --bg-blue-zone: #cce4eb; --status-ready: #4caf50; --status-busy: #e53935; --primary-color: #005088; --nav-height: 60px; --header-height: 50px; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
@@ -105,11 +104,11 @@
     </div>
     <div id="view-timeline" class="view-section">
         <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">履歴 (History)</h3>
-        <div id="timeline-list"><div style="text-align:center; padding:20px; color:#999;">読み込み中...</div></div>
+        <div id="timeline-list"><div style="text-align:center; padding:20px; color:#999;">接続中...</div></div>
     </div>
     <div id="view-chat" class="view-section" style="padding-bottom: 120px;">
         <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">メッセージ (Chat)</h3>
-        <div id="message-list"><div style="text-align:center; padding:20px; color:#999;">読み込み中...</div></div>
+        <div id="message-list"><div style="text-align:center; padding:20px; color:#999;">接続中...</div></div>
         <div class="chat-footer" id="chat-input-area">
              <select id="msg-target-room" style="width: 80px;"><option value="All">All</option><option value="Rm1">Rm1</option><option value="Rm2">Rm2</option><option value="Rm3">Rm3</option></select>
             <input type="text" id="msg-text" placeholder="送信内容...">
@@ -155,16 +154,12 @@
 </div>
 
 <script>
-    // --- PWA Register ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW Reg Success:', reg.scope))
-                .catch(err => console.log('SW Reg Failed:', err));
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
         });
     }
 
-    // --- Firebase & App Logic ---
     const firebaseConfig = {
       apiKey: "AIzaSyAuIftnSDzCcZu7KCJQwsbXLqy6WJDca60",
       authDomain: "angioroomshare.firebaseapp.com",
@@ -200,12 +195,31 @@
                 if(s.val()) el.classList.add('online'); else el.classList.remove('online');
             });
             db.ref('rooms').on('value', s => { globalRooms = s.val() || {}; this.renderMap(globalRooms); });
+            
+            // --- 修正: ログ読み込み処理の強化 ---
             db.ref('logs').limitToLast(50).on('value', s => {
-                const arr = []; s.forEach(c => arr.unshift(c.val()));
-                globalLogs = arr; this.renderTimeline(arr);
+                const arr = [];
+                if (s.exists()) {
+                    s.forEach(c => {
+                        const val = c.val();
+                        // 壊れたデータを無視して正常なものだけを取り込む
+                        if (val && val.timestamp) {
+                            arr.unshift(val);
+                        }
+                    });
+                }
+                globalLogs = arr;
+                this.renderTimeline(arr);
             });
+
             db.ref('messages').limitToLast(20).on('value', s => {
-                const arr = []; s.forEach(c => arr.unshift(c.val()));
+                const arr = [];
+                if (s.exists()) {
+                    s.forEach(c => {
+                        const val = c.val();
+                        if (val && val.timestamp) arr.unshift(val);
+                    });
+                }
                 this.renderMessages(arr);
             });
         },
@@ -307,25 +321,37 @@
                 document.getElementById(`room-${id}-footer`).textContent=r.lastChange?`${new Date(r.lastChange).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} - ${r.by}`:'--';
             });
         },
+        // --- 修正: 描画ロジックの安全化 ---
         renderTimeline: function(l) {
             const d = document.getElementById('timeline-list'); d.innerHTML='';
-            const f = l.filter(v => v.type==='status_change'||!v.type);
-            if(f.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴なし</div>';
-            f.forEach(v => {
-                const el = document.createElement('div');
-                el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
-                el.innerHTML = `<span class="time-badge">${new Date(v.timestamp).toLocaleTimeString('ja-JP')}</span><strong>Angio ${v.roomId}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
-                d.appendChild(el);
+            // 壊れたデータを安全にスキップしながら表示
+            const validLogs = l.filter(v => v && v.timestamp);
+            
+            if(validLogs.length === 0) {
+                return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴はありません</div>';
+            }
+            
+            validLogs.forEach(v => {
+                try {
+                    const el = document.createElement('div');
+                    el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
+                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP');
+                    el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>Angio ${v.roomId}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                    d.appendChild(el);
+                } catch(e) { console.error('Render Error:', e); }
             });
         },
         renderMessages: function(m) {
             const d = document.getElementById('message-list'); d.innerHTML='';
-            if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージなし</div>';
+            if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージはありません</div>';
             m.forEach(v => {
-                const el = document.createElement('div');
-                el.className = 'timeline-item'; el.style.borderLeftColor='#005088';
-                el.innerHTML = `<span class="time-badge">${new Date(v.timestamp).toLocaleTimeString('ja-JP')} @${v.target}</span>${v.text}<br><span style="color:#555">by ${v.user}</span>`;
-                d.appendChild(el);
+                try {
+                    const el = document.createElement('div');
+                    el.className = 'timeline-item'; el.style.borderLeftColor='#005088';
+                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP');
+                    el.innerHTML = `<span class="time-badge">${timeStr} @${v.target}</span>${v.text}<br><span style="color:#555">by ${v.user}</span>`;
+                    d.appendChild(el);
+                } catch(e) { console.error(e); }
             });
         },
         openAdmin: function() {
@@ -335,11 +361,11 @@
         renderAdmin: function() {
             const s = document.getElementById('daily-stats'); s.innerHTML='';
             [1,2,3].forEach(id => {
-                const c = globalLogs.filter(l=>l.roomId===id && l.status==='busy' && (l.type==='status_change'||!l.type) && new Date(l.timestamp).toDateString()===new Date().toDateString()).length;
+                const c = globalLogs.filter(l=>l && l.roomId===id && l.status==='busy' && (l.type==='status_change'||!l.type) && l.timestamp && new Date(l.timestamp).toDateString()===new Date().toDateString()).length;
                 s.innerHTML+=`<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>A${id}</strong><br>${c}回</div>`;
             });
             const tb = document.getElementById('admin-log-table'); tb.innerHTML='';
-            globalLogs.filter(l=>l.type==='status_change'||!l.type).forEach(l=>{
+            globalLogs.filter(l=> (l.type==='status_change'||!l.type) && l.timestamp).forEach(l=>{
                 const tr=document.createElement('tr');
                 tr.innerHTML=`<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>A${l.roomId}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
                 tb.appendChild(tr);
