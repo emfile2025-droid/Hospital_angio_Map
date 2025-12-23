@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Angio Status</title>
+    
+    <meta name="theme-color" content="#005088">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Angio Status">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        /* CSSはVer 3.3.0と同じものを維持 */
+        :root { --bg-blue-zone: #cce4eb; --status-ready: #4caf50; --status-busy: #e53935; --primary-color: #005088; --nav-height: 60px; --header-height: 50px; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background-color: #fff; padding: 0 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; height: var(--header-height); flex-shrink: 0; z-index: 20; padding-top: env(safe-area-inset-top); }
+        .header-left h1 { margin: 0; font-size: 1rem; color: var(--primary-color); }
+        .header-right { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; }
+        #clock { font-family: monospace; font-weight: bold; }
+        #connection-status { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; }
+        .online { background: #4caf50 !important; box-shadow: 0 0 5px #4caf50; }
+        button.sm-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
+        button.admin-btn { background: #333; color: #fff; border: none; }
+        .main-content { flex: 1; position: relative; overflow: hidden; background: #f0f2f5; }
+        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 15px; padding-bottom: calc(var(--nav-height) + 20px); display: none; }
+        .view-section.active { display: block; }
+        .map-container { height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .zone-imaging { background-color: var(--bg-blue-zone); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; height: 100%; max-height: 600px; margin: 0 auto; width: 100%; max-width: 600px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .zone-title { font-size: 1.2rem; font-weight: bold; color: #547c8a; margin-bottom: 15px; text-align: center; }
+        .angio-rooms-container { display: grid; grid-template-columns: 1fr; gap: 15px; flex: 1; }
+        @media (min-width: 350px) { .angio-rooms-container { grid-template-columns: 1fr 1fr 1fr; } }
+        .room-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; user-select: none; cursor: pointer; touch-action: manipulation; }
+        .room-card:active { transform: scale(0.96); background: #f5f5f5; }
+        .read-only .room-card { cursor: default; } .read-only .room-card:active { transform: none; background: #fff; }
+        .room-header { padding: 8px; font-size: 0.9rem; font-weight: bold; text-align: center; background: #fafafa; border-bottom: 1px solid #eee; }
+        .room-status-indicator { flex: 1; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; font-weight: bold; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.3); min-height: 60px; }
+        .status-ready { background-color: var(--status-ready); } .status-busy { background-color: var(--status-busy); }
+        .room-footer { padding: 6px; font-size: 0.7rem; background: #fff; color: #666; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #eee; }
+        .timeline-item { background: #fff; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.85rem; }
+        .timeline-item.log-ready { border-left-color: var(--status-ready); } .timeline-item.log-busy { border-left-color: var(--status-busy); }
+        .time-badge { font-size: 0.7rem; color: #999; display: block; margin-bottom: 2px; }
+        .chat-footer { position: fixed; bottom: var(--nav-height); left: 0; width: 100%; background: #fff; padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 8px; z-index: 15; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        .chat-footer input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .chat-footer button { background: var(--primary-color); color: white; border: none; padding: 0 15px; border-radius: 4px; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: #fff; border-top: 1px solid #ddd; display: flex; justify-content: space-around; align-items: center; z-index: 20; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; text-align: center; color: #888; font-size: 0.7rem; padding: 5px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+        .nav-item.active { color: var(--primary-color); font-weight: bold; }
+        .nav-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
+        .modal { background: #fff; padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal h3 { margin-top: 0; color: var(--primary-color); text-align: center;}
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.85rem; }
+        .input-group select, .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        button.primary-btn { background-color: var(--primary-color); color: white; border: none; padding: 12px; border-radius: 6px; width: 100%; font-size: 1rem; font-weight: bold; }
+        .hidden { display: none !important; }
+        table.admin-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+        table.admin-table th, td { border: 1px solid #eee; padding: 5px; }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="header-left"><h1>Angio Status <span id="connection-status"></span></h1></div>
+    <div class="header-right">
+        <div id="clock">--:--</div>
+        <div id="user-display" style="max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Guest</div>
+        <button id="logout-btn" class="sm-btn hidden" onclick="appLogic.logout()">Exit</button>
+        <button class="sm-btn admin-btn" onclick="appLogic.openAdmin()">Ad</button>
+    </div>
+</header>
+
+<div class="main-content" id="main-content-area">
+    <div id="view-map" class="view-section active">
+        <div class="map-container">
+            <div class="zone-imaging">
+                <div class="zone-title">画像診断</div>
+                <div class="angio-rooms-container">
+                    <div class="room-card" onclick="appLogic.toggleRoom(1)">
+                        <div class="room-header">Angio 1</div>
+                        <div class="room-status-indicator" id="room-1-status">Sync</div>
+                        <div class="room-footer" id="room-1-footer">--</div>
+                    </div>
+                    <div class="room-card" onclick="appLogic.toggleRoom(2)">
+                        <div class="room-header">Angio 2</div>
+                        <div class="room-status-indicator" id="room-2-status">Sync</div>
+                        <div class="room-footer" id="room-2-footer">--</div>
+                    </div>
+                    <div class="room-card" onclick="appLogic.toggleRoom(3)">
+                        <div class="room-header">Angio 3</div>
+                        <div class="room-status-indicator" id="room-3-status">Sync</div>
+                        <div class="room-footer" id="room-3-footer">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="view-timeline" class="view-section">
+        <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">履歴 (History)</h3>
+        <div id="timeline-list"><div style="text-align:center; padding:20px; color:#999;">読み込み中...</div></div>
+    </div>
+    <div id="view-chat" class="view-section" style="padding-bottom: 120px;">
+        <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">メッセージ (Chat)</h3>
+        <div id="message-list"><div style="text-align:center; padding:20px; color:#999;">読み込み中...</div></div>
+        <div class="chat-footer" id="chat-input-area">
+             <select id="msg-target-room" style="width: 80px;"><option value="All">All</option><option value="Rm1">Rm1</option><option value="Rm2">Rm2</option><option value="Rm3">Rm3</option></select>
+            <input type="text" id="msg-text" placeholder="送信内容...">
+            <button onclick="appLogic.postMessage()">送</button>
+        </div>
+        <div class="chat-footer hidden" id="chat-readonly-msg" style="justify-content:center; color:#999; font-size:0.8rem;">※参照専用モードのため投稿できません</div>
+    </div>
+</div>
+
+<div class="bottom-nav">
+    <div class="nav-item active" onclick="appLogic.switchView('map', this)"><span class="nav-icon">🗺️</span><span>マップ</span></div>
+    <div class="nav-item" onclick="appLogic.switchView('timeline', this)"><span class="nav-icon">🕒</span><span>履歴</span></div>
+    <div class="nav-item" onclick="appLogic.switchView('chat', this)"><span class="nav-icon">💬</span><span>チャット</span></div>
+</div>
+
+<div id="name-modal" class="modal-overlay">
+    <div class="modal">
+        <h3>ログイン</h3>
+        <div class="input-group">
+            <label>役割 (Role)</label>
+            <select id="input-role" onchange="appLogic.onRoleChange()">
+                <option value="循環器科">循環器科</option><option value="放射線技術科">放射線技術科</option><option value="管理者">管理者 (Admin)</option><option value="参照者">参照者 (Viewer)</option>
+            </select>
+        </div>
+        <div id="name-input-container">
+            <div class="input-group" id="history-group" style="display:none;">
+                <label>履歴から選択</label><select id="history-select" onchange="appLogic.onHistorySelect()"><option value="">-- 新しい名前を入力 --</option></select>
+            </div>
+            <div class="input-group"><label>氏名 (Name)</label><input type="text" id="input-name" placeholder="氏名を入力"></div>
+        </div>
+        <button class="primary-btn" id="start-btn" onclick="appLogic.registerUser()">開始</button>
+    </div>
+</div>
+
+<div id="admin-modal" class="modal-overlay">
+    <div class="modal" style="max-width:600px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;"><h3>管理者モード</h3><button class="sm-btn" onclick="document.getElementById('admin-modal').style.display='none'">閉じる</button></div>
+        <p>本日の使用回数</p><div id="daily-stats" style="display:flex; gap:10px; margin-bottom:15px; justify-content:space-around;"></div>
+        <div style="max-height: 200px; overflow-y: auto;">
+            <table class="admin-table"><thead><tr><th>時間</th><th>部屋</th><th>St</th><th>User</th></tr></thead><tbody id="admin-log-table"></tbody></table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- PWA Register ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW Reg Success:', reg.scope))
+                .catch(err => console.log('SW Reg Failed:', err));
+        });
+    }
+
+    // --- Firebase & App Logic ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAuIftnSDzCcZu7KCJQwsbXLqy6WJDca60",
+      authDomain: "angioroomshare.firebaseapp.com",
+      projectId: "angioroomshare",
+      storageBucket: "angioroomshare.firebasestorage.app",
+      messagingSenderId: "643422156272",
+      appId: "1:643422156272:web:4a877ceec68c444c72d935",
+      measurementId: "G-EWKRWV6LYR"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const USER_KEY = "angio_sys_user_v3";
+    const HISTORY_KEY = "angio_user_history";
+    let currentUser = { name: null, role: null };
+    let globalLogs = []; let globalRooms = {};
+
+    const appLogic = {
+        init: function() {
+            this.loadUser(); this.initAuth();
+            setInterval(this.updateClock, 1000); this.updateClock();
+            window.addEventListener('resize', () => { document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`); });
+        },
+        initAuth: function() {
+            const statusEl = document.getElementById('connection-status');
+            auth.signInAnonymously().catch(e => { console.error(e); statusEl.classList.add('error'); });
+            auth.onAuthStateChanged(u => { if(u){this.initListeners();}else{statusEl.classList.remove('online');} });
+        },
+        initListeners: function() {
+            db.ref(".info/connected").on("value", s => {
+                const el = document.getElementById('connection-status');
+                if(s.val()) el.classList.add('online'); else el.classList.remove('online');
+            });
+            db.ref('rooms').on('value', s => { globalRooms = s.val() || {}; this.renderMap(globalRooms); });
+            db.ref('logs').limitToLast(50).on('value', s => {
+                const arr = []; s.forEach(c => arr.unshift(c.val()));
+                globalLogs = arr; this.renderTimeline(arr);
+            });
+            db.ref('messages').limitToLast(20).on('value', s => {
+                const arr = []; s.forEach(c => arr.unshift(c.val()));
+                this.renderMessages(arr);
+            });
+        },
+        switchView: function(viewId, navEl) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if(navEl) navEl.classList.add('active');
+        },
+        loadUser: function() {
+            const saved = localStorage.getItem(USER_KEY);
+            if (saved) { currentUser = JSON.parse(saved); this.applyRoleUI(currentUser); } 
+            else { this.showLoginModal(); }
+        },
+        applyRoleUI: function(user) {
+            document.getElementById('name-modal').style.display = 'none';
+            document.getElementById('user-display').textContent = user.name;
+            document.getElementById('logout-btn').classList.remove('hidden');
+            if (user.role === '参照者') {
+                document.getElementById('main-content-area').classList.add('read-only');
+                document.getElementById('chat-input-area').classList.add('hidden');
+                document.getElementById('chat-readonly-msg').classList.remove('hidden');
+            } else {
+                document.getElementById('main-content-area').classList.remove('read-only');
+                document.getElementById('chat-input-area').classList.remove('hidden');
+                document.getElementById('chat-readonly-msg').classList.add('hidden');
+            }
+        },
+        showLoginModal: function() {
+            document.getElementById('logout-btn').classList.add('hidden');
+            document.getElementById('name-modal').style.display = 'flex';
+            this.onRoleChange(); 
+        },
+        onRoleChange: function() {
+            const role = document.getElementById('input-role').value;
+            const cnt = document.getElementById('name-input-container');
+            const btn = document.getElementById('start-btn');
+            if (role === '参照者') { cnt.style.display = 'none'; btn.textContent = "閲覧を開始"; }
+            else {
+                cnt.style.display = 'block'; btn.textContent = "開始";
+                const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
+                const n = h[role] || [];
+                const grp = document.getElementById('history-group');
+                const sel = document.getElementById('history-select');
+                if (n.length > 0) {
+                    grp.style.display = 'block'; sel.innerHTML = '<option value="">-- 履歴から選択 --</option>';
+                    n.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+                } else { grp.style.display = 'none'; }
+                document.getElementById('input-name').value = '';
+            }
+        },
+        onHistorySelect: function() {
+            const v = document.getElementById('history-select').value;
+            if(v) document.getElementById('input-name').value = v;
+        },
+        registerUser: function() {
+            const role = document.getElementById('input-role').value;
+            let name = document.getElementById('input-name').value.trim();
+            if (role === '管理者') {
+                const id = prompt("管理者ID"); if(id!=='185383') return alert("NG");
+                const pw = prompt("管理者PW"); if(pw!=='angio') return alert("NG");
+            }
+            if (role === '参照者') { name = 'Guest Viewer'; }
+            else {
+                if (!name) return alert("氏名を入力");
+                const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
+                if (!h[role]) h[role] = [];
+                if (!h[role].includes(name)) { h[role].unshift(name); h[role] = h[role].slice(0,5); localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
+            }
+            currentUser = { name, role };
+            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+            this.applyRoleUI(currentUser);
+        },
+        logout: function() { if(confirm('退出?')){localStorage.removeItem(USER_KEY); location.reload();} },
+        toggleRoom: function(id) {
+            if (!currentUser.name) return this.showLoginModal();
+            if (currentUser.role === '参照者') return;
+            const r = globalRooms[id] || { status: 'ready' };
+            const n = r.status === 'ready' ? 'busy' : 'ready';
+            const ts = Date.now();
+            db.ref('rooms/'+id).set({status:n, lastChange:ts, by:currentUser.name, role:currentUser.role});
+            db.ref('logs').push({timestamp:ts, type:'status_change', roomId:id, status:n, user:currentUser.name, role:currentUser.role});
+        },
+        postMessage: function() {
+            if (!currentUser.name) return this.showLoginModal();
+            if (currentUser.role === '参照者') return;
+            const t = document.getElementById('msg-text').value.trim();
+            if(!t) return;
+            db.ref('messages').push({timestamp:Date.now(), text:t, target:document.getElementById('msg-target-room').value, user:currentUser.name, role:currentUser.role});
+            document.getElementById('msg-text').value = '';
+        },
+        updateClock: function() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); },
+        renderMap: function(d) {
+            [1,2,3].forEach(id => {
+                const r = d[id] || {status:'ready',by:'-'};
+                const st = document.getElementById(`room-${id}-status`);
+                st.className='room-status-indicator '+(r.status==='ready'?'status-ready':'status-busy');
+                st.textContent=r.status==='ready'?'READY':'IN USE';
+                document.getElementById(`room-${id}-footer`).textContent=r.lastChange?`${new Date(r.lastChange).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} - ${r.by}`:'--';
+            });
+        },
+        renderTimeline: function(l) {
+            const d = document.getElementById('timeline-list'); d.innerHTML='';
+            const f = l.filter(v => v.type==='status_change'||!v.type);
+            if(f.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴なし</div>';
+            f.forEach(v => {
+                const el = document.createElement('div');
+                el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
+                el.innerHTML = `<span class="time-badge">${new Date(v.timestamp).toLocaleTimeString('ja-JP')}</span><strong>Angio ${v.roomId}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                d.appendChild(el);
+            });
+        },
+        renderMessages: function(m) {
+            const d = document.getElementById('message-list'); d.innerHTML='';
+            if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージなし</div>';
+            m.forEach(v => {
+                const el = document.createElement('div');
+                el.className = 'timeline-item'; el.style.borderLeftColor='#005088';
+                el.innerHTML = `<span class="time-badge">${new Date(v.timestamp).toLocaleTimeString('ja-JP')} @${v.target}</span>${v.text}<br><span style="color:#555">by ${v.user}</span>`;
+                d.appendChild(el);
+            });
+        },
+        openAdmin: function() {
+            if(currentUser.role!=='管理者'){ const i=prompt("ID"); if(i!=='185383')return; const p=prompt("PW"); if(p!=='angio')return; }
+            document.getElementById('admin-modal').style.display='flex'; this.renderAdmin();
+        },
+        renderAdmin: function() {
+            const s = document.getElementById('daily-stats'); s.innerHTML='';
+            [1,2,3].forEach(id => {
+                const c = globalLogs.filter(l=>l.roomId===id && l.status==='busy' && (l.type==='status_change'||!l.type) && new Date(l.timestamp).toDateString()===new Date().toDateString()).length;
+                s.innerHTML+=`<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>A${id}</strong><br>${c}回</div>`;
+            });
+            const tb = document.getElementById('admin-log-table'); tb.innerHTML='';
+            globalLogs.filter(l=>l.type==='status_change'||!l.type).forEach(l=>{
+                const tr=document.createElement('tr');
+                tr.innerHTML=`<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>A${l.roomId}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
+                tb.appendChild(tr);
+            });
+        }
+    };
+    window.onload = () => appLogic.init();
+</script>
+</body>
+</html>
