@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Angio Status</title>
+    <title>Angio Status Map</title>
     
-    <meta name="theme-color" content="#005088">
+    <meta name="theme-color" content="#5d4e46">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="manifest" href="manifest.json">
 
     <style>
-        /* CSS Same as Ver 3.3.0 */
-        :root { --bg-blue-zone: #cce4eb; --status-ready: #4caf50; --status-busy: #e53935; --primary-color: #005088; --nav-height: 60px; --header-height: 50px; }
+        /* Base Variables */
+        :root { 
+            --bg-floor: #5d4e46; 
+            --status-ready: #4caf50; 
+            --status-busy: #e53935; 
+            --primary-color: #005088; 
+            --nav-height: 60px; 
+            --header-height: 50px; 
+        }
+
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* Header */
         header { background-color: #fff; padding: 0 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; height: var(--header-height); flex-shrink: 0; z-index: 20; padding-top: env(safe-area-inset-top); }
         .header-left h1 { margin: 0; font-size: 1rem; color: var(--primary-color); }
         .header-right { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; }
@@ -24,21 +34,116 @@
         .online { background: #4caf50 !important; box-shadow: 0 0 5px #4caf50; }
         button.sm-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
         button.admin-btn { background: #333; color: #fff; border: none; }
+        
+        /* Main Content */
         .main-content { flex: 1; position: relative; overflow: hidden; background: #f0f2f5; }
-        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 15px; padding-bottom: calc(var(--nav-height) + 20px); display: none; }
+        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 10px; padding-bottom: calc(var(--nav-height) + 20px); display: none; }
         .view-section.active { display: block; }
-        .map-container { height: 100%; display: flex; flex-direction: column; justify-content: center; }
-        .zone-imaging { background-color: var(--bg-blue-zone); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; height: 100%; max-height: 600px; margin: 0 auto; width: 100%; max-width: 600px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .zone-title { font-size: 1.2rem; font-weight: bold; color: #547c8a; margin-bottom: 15px; text-align: center; }
-        .angio-rooms-container { display: grid; grid-template-columns: 1fr; gap: 15px; flex: 1; }
-        @media (min-width: 350px) { .angio-rooms-container { grid-template-columns: 1fr 1fr 1fr; } }
-        .room-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; user-select: none; cursor: pointer; touch-action: manipulation; }
-        .room-card:active { transform: scale(0.96); background: #f5f5f5; }
-        .read-only .room-card { cursor: default; } .read-only .room-card:active { transform: none; background: #fff; }
-        .room-header { padding: 8px; font-size: 0.9rem; font-weight: bold; text-align: center; background: #fafafa; border-bottom: 1px solid #eee; }
-        .room-status-indicator { flex: 1; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; font-weight: bold; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.3); min-height: 60px; }
-        .status-ready { background-color: var(--status-ready); } .status-busy { background-color: var(--status-busy); }
-        .room-footer { padding: 6px; font-size: 0.7rem; background: #fff; color: #666; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #eee; }
+
+        /* --- Map Layout --- */
+        .map-container { 
+            height: 100%; 
+            width: 100%;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+        }
+        
+        .floor-map-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2vmin; 
+            background-color: var(--bg-floor);
+            padding: 2vmin;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: relative;
+            width: min(96vw, 130vh);     
+            height: min(75vh, 72vw);     
+            aspect-ratio: 4 / 3;         
+            margin: auto;
+        }
+
+        .room-card { 
+            background: #cce4eb; 
+            border-radius: 6px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            position: relative; 
+            user-select: none; 
+            cursor: pointer; 
+            touch-action: manipulation;
+            transition: transform 0.1s;
+        }
+        .room-card:active { transform: scale(0.98); }
+        .read-only .room-card { cursor: default; transform: none; }
+
+        .pos-top-left { grid-column: 1 / 2; grid-row: 1 / 2; }
+        .pos-bottom-left { grid-column: 1 / 2; grid-row: 2 / 3; }
+        .pos-bottom-right { grid-column: 2 / 3; grid-row: 2 / 3; }
+        
+        /* Top Right Chat Widget */
+        .pos-top-right-info { 
+            grid-column: 2 / 3; 
+            grid-row: 1 / 2; 
+            background: #fff; 
+            border: 2px solid #005088; /* Highlight border */
+        }
+
+        .room-header { 
+            padding: 1vmin; font-size: clamp(0.8rem, 2vmin, 1.5rem); font-weight: bold; text-align: center; 
+            background: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(0,0,0,0.05); color: #333;
+        }
+        
+        .chat-widget-header {
+            background: #eef; color: #446; border-bottom: 1px solid #dde; font-size: clamp(0.8rem, 1.8vmin, 1.2rem);
+        }
+
+        .room-status-indicator { 
+            flex: 1; display: flex; justify-content: center; align-items: center; 
+            flex-direction: column; color: white; font-weight: bold; 
+            font-size: clamp(1.2rem, 4vmin, 3rem); 
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
+        }
+        
+        /* Updated Chat Widget Content Styles */
+        .latest-chat-content {
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; /* Start from top */
+            align-items: flex-start;     /* Align left */
+            text-align: left;
+            padding: 8px; 
+            overflow-y: auto;            /* Scrollable if too long */
+            width: 100%;
+            font-size: clamp(0.8rem, 2vmin, 1.1rem); /* Adaptive font size */
+            color: #333;
+            line-height: 1.4;
+            word-break: break-word;      /* Wrap long words */
+        }
+        
+        /* Scrollbar styling for widget */
+        .latest-chat-content::-webkit-scrollbar { width: 4px; }
+        .latest-chat-content::-webkit-scrollbar-track { background: transparent; }
+        .latest-chat-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+
+        .latest-chat-meta {
+            font-size: 0.75em; color: #888; align-self: flex-end; margin-top: auto; padding-top: 4px;
+        }
+
+        .status-ready { background-color: var(--status-ready); } 
+        .status-busy { background-color: var(--status-busy); }
+        .room-footer { 
+            padding: 0.5vmin; font-size: clamp(0.6rem, 1.5vmin, 1rem); background: #fff; color: #555; 
+            text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+
+        /* Lists & Chat */
         .timeline-item { background: #fff; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.85rem; }
         .timeline-item.log-ready { border-left-color: var(--status-ready); } .timeline-item.log-busy { border-left-color: var(--status-busy); }
         .time-badge { font-size: 0.7rem; color: #999; display: block; margin-bottom: 2px; }
@@ -80,37 +185,47 @@
 <div class="main-content" id="main-content-area">
     <div id="view-map" class="view-section active">
         <div class="map-container">
-            <div class="zone-imaging">
-                <div class="zone-title">画像診断</div>
-                <div class="angio-rooms-container">
-                    <div class="room-card" onclick="appLogic.toggleRoom(1)">
-                        <div class="room-header">Angio 1</div>
-                        <div class="room-status-indicator" id="room-1-status">Sync</div>
-                        <div class="room-footer" id="room-1-footer">--</div>
-                    </div>
-                    <div class="room-card" onclick="appLogic.toggleRoom(2)">
-                        <div class="room-header">Angio 2</div>
-                        <div class="room-status-indicator" id="room-2-status">Sync</div>
-                        <div class="room-footer" id="room-2-footer">--</div>
-                    </div>
-                    <div class="room-card" onclick="appLogic.toggleRoom(3)">
-                        <div class="room-header">Angio 3</div>
-                        <div class="room-status-indicator" id="room-3-status">Sync</div>
-                        <div class="room-footer" id="room-3-footer">--</div>
+            <div class="floor-map-grid">
+                
+                <div class="room-card pos-top-left" onclick="appLogic.toggleRoom(2)">
+                    <div class="room-header">14-19 血管撮影室2</div>
+                    <div class="room-status-indicator" id="room-2-status">Sync</div>
+                    <div class="room-footer" id="room-2-footer">--</div>
+                </div>
+
+                <div class="room-card pos-top-right-info" onclick="appLogic.switchView('chat', document.querySelectorAll('.nav-item')[2])">
+                    <div class="room-header chat-widget-header">最新Chat</div>
+                    <div id="latest-chat-display" class="latest-chat-content">
+                        <span style="color:#ccc; align-self:center;">(なし)</span>
                     </div>
                 </div>
+
+                <div class="room-card pos-bottom-left" onclick="appLogic.toggleRoom(3)">
+                    <div class="room-header">14-18 心臓血管</div>
+                    <div class="room-status-indicator" id="room-3-status">Sync</div>
+                    <div class="room-footer" id="room-3-footer">--</div>
+                </div>
+
+                <div class="room-card pos-bottom-right" onclick="appLogic.toggleRoom(1)">
+                    <div class="room-header">14-17 血管撮影室1</div>
+                    <div class="room-status-indicator" id="room-1-status">Sync</div>
+                    <div class="room-footer" id="room-1-footer">--</div>
+                </div>
+
             </div>
         </div>
     </div>
+
     <div id="view-timeline" class="view-section">
         <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">履歴 (History)</h3>
         <div id="timeline-list"><div style="text-align:center; padding:20px; color:#999;">接続中...</div></div>
     </div>
+    
     <div id="view-chat" class="view-section" style="padding-bottom: 120px;">
         <h3 style="margin-top:0; color:#666; border-bottom:1px solid #ddd; padding-bottom:5px;">メッセージ (Chat)</h3>
         <div id="message-list"><div style="text-align:center; padding:20px; color:#999;">接続中...</div></div>
         <div class="chat-footer" id="chat-input-area">
-             <select id="msg-target-room" style="width: 80px;"><option value="All">All</option><option value="Rm1">Rm1</option><option value="Rm2">Rm2</option><option value="Rm3">Rm3</option></select>
+             <select id="msg-target-room" style="width: 80px;"><option value="All">All</option><option value="Rm1">Rm1</option><option value="Rm2">Rm2</option><option value="Cardio">心臓</option></select>
             <input type="text" id="msg-text" placeholder="送信内容...">
             <button onclick="appLogic.postMessage()">送</button>
         </div>
@@ -155,9 +270,7 @@
 
 <script>
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
-        });
+        window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err)); });
     }
 
     const firebaseConfig = {
@@ -195,31 +308,14 @@
                 if(s.val()) el.classList.add('online'); else el.classList.remove('online');
             });
             db.ref('rooms').on('value', s => { globalRooms = s.val() || {}; this.renderMap(globalRooms); });
-            
-            // --- 修正: ログ読み込み処理の強化 ---
             db.ref('logs').limitToLast(50).on('value', s => {
                 const arr = [];
-                if (s.exists()) {
-                    s.forEach(c => {
-                        const val = c.val();
-                        // 壊れたデータを無視して正常なものだけを取り込む
-                        if (val && val.timestamp) {
-                            arr.unshift(val);
-                        }
-                    });
-                }
-                globalLogs = arr;
-                this.renderTimeline(arr);
+                if (s.exists()) { s.forEach(c => { const val = c.val(); if (val && val.timestamp) { arr.unshift(val); } }); }
+                globalLogs = arr; this.renderTimeline(arr);
             });
-
             db.ref('messages').limitToLast(20).on('value', s => {
                 const arr = [];
-                if (s.exists()) {
-                    s.forEach(c => {
-                        const val = c.val();
-                        if (val && val.timestamp) arr.unshift(val);
-                    });
-                }
+                if (s.exists()) { s.forEach(c => { const val = c.val(); if (val && val.timestamp) arr.unshift(val); }); }
                 this.renderMessages(arr);
             });
         },
@@ -321,28 +417,44 @@
                 document.getElementById(`room-${id}-footer`).textContent=r.lastChange?`${new Date(r.lastChange).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} - ${r.by}`:'--';
             });
         },
-        // --- 修正: 描画ロジックの安全化 ---
         renderTimeline: function(l) {
             const d = document.getElementById('timeline-list'); d.innerHTML='';
-            // 壊れたデータを安全にスキップしながら表示
             const validLogs = l.filter(v => v && v.timestamp);
-            
-            if(validLogs.length === 0) {
-                return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴はありません</div>';
-            }
-            
+            if(validLogs.length === 0) { return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴はありません</div>'; }
             validLogs.forEach(v => {
                 try {
                     const el = document.createElement('div');
                     el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
                     const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP');
-                    el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>Angio ${v.roomId}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                    let rName = `Angio ${v.roomId}`;
+                    if(v.roomId==1) rName="血管1"; if(v.roomId==2) rName="血管2"; if(v.roomId==3) rName="心臓";
+                    el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>${rName}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
                     d.appendChild(el);
                 } catch(e) { console.error('Render Error:', e); }
             });
         },
         renderMessages: function(m) {
             const d = document.getElementById('message-list'); d.innerHTML='';
+            
+            // --- Widget Update: Full Text with Scrolling ---
+            const latestBox = document.getElementById('latest-chat-display');
+            if (m.length > 0) {
+                const latest = m[0];
+                const tStr = new Date(latest.timestamp).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+                // Show Full Text structure
+                latestBox.innerHTML = `
+                    <div style="width:100%; display:flex; justify-content:space-between; font-size:0.85em; font-weight:bold; color:#005088; margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px;">
+                        <span>${tStr}</span>
+                        <span>@${latest.target}</span>
+                    </div>
+                    <div style="width:100%; margin-bottom:4px;">${latest.text}</div>
+                    <div class="latest-chat-meta">by ${latest.user}</div>
+                `;
+            } else {
+                latestBox.innerHTML = '<span style="color:#ccc; align-self:center;">(なし)</span>';
+            }
+
+            // --- Normal List Rendering ---
             if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージはありません</div>';
             m.forEach(v => {
                 try {
@@ -362,12 +474,14 @@
             const s = document.getElementById('daily-stats'); s.innerHTML='';
             [1,2,3].forEach(id => {
                 const c = globalLogs.filter(l=>l && l.roomId===id && l.status==='busy' && (l.type==='status_change'||!l.type) && l.timestamp && new Date(l.timestamp).toDateString()===new Date().toDateString()).length;
-                s.innerHTML+=`<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>A${id}</strong><br>${c}回</div>`;
+                let rName = `A${id}`; if(id==3) rName="心臓";
+                s.innerHTML+=`<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>${rName}</strong><br>${c}回</div>`;
             });
             const tb = document.getElementById('admin-log-table'); tb.innerHTML='';
             globalLogs.filter(l=> (l.type==='status_change'||!l.type) && l.timestamp).forEach(l=>{
                 const tr=document.createElement('tr');
-                tr.innerHTML=`<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>A${l.roomId}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
+                let rName = `Angio ${l.roomId}`; if(l.roomId==1) rName="血管1"; if(l.roomId==2) rName="血管2"; if(l.roomId==3) rName="心臓";
+                tr.innerHTML=`<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>${rName}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
                 tb.appendChild(tr);
             });
         }
