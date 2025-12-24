@@ -29,7 +29,15 @@
         header { background-color: #fff; padding: 0 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; height: var(--header-height); flex-shrink: 0; z-index: 20; padding-top: env(safe-area-inset-top); }
         .header-left h1 { margin: 0; font-size: 1rem; color: var(--primary-color); }
         .header-right { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; }
-        #clock { font-family: monospace; font-weight: bold; }
+        
+        /* Clock Update: Responsive Font Size */
+        #clock { 
+            font-family: monospace; 
+            font-weight: bold; 
+            font-size: clamp(0.7rem, 2.5vw, 1rem); /* Adjust size based on screen width */
+            white-space: nowrap;
+        }
+        
         #connection-status { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; }
         .online { background: #4caf50 !important; box-shadow: 0 0 5px #4caf50; }
         button.sm-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
@@ -91,7 +99,7 @@
             grid-column: 2 / 3; 
             grid-row: 1 / 2; 
             background: #fff; 
-            border: 2px solid #005088; /* Highlight border */
+            border: 2px solid #005088;
         }
 
         .room-header { 
@@ -110,24 +118,23 @@
             text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
         }
         
-        /* Updated Chat Widget Content Styles */
+        /* Chat Widget Content */
         .latest-chat-content {
             flex: 1; 
             display: flex; 
             flex-direction: column; 
-            justify-content: flex-start; /* Start from top */
-            align-items: flex-start;     /* Align left */
+            justify-content: flex-start;
+            align-items: flex-start;
             text-align: left;
             padding: 8px; 
-            overflow-y: auto;            /* Scrollable if too long */
+            overflow-y: auto;
             width: 100%;
-            font-size: clamp(0.8rem, 2vmin, 1.1rem); /* Adaptive font size */
+            font-size: clamp(0.8rem, 2vmin, 1.1rem);
             color: #333;
             line-height: 1.4;
-            word-break: break-word;      /* Wrap long words */
+            word-break: break-word;
         }
         
-        /* Scrollbar styling for widget */
         .latest-chat-content::-webkit-scrollbar { width: 4px; }
         .latest-chat-content::-webkit-scrollbar-track { background: transparent; }
         .latest-chat-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
@@ -175,7 +182,7 @@
 <header>
     <div class="header-left"><h1>Angio Status <span id="connection-status"></span></h1></div>
     <div class="header-right">
-        <div id="clock">--:--</div>
+        <div id="clock">--/-- --:--</div>
         <div id="user-display" style="max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Guest</div>
         <button id="logout-btn" class="sm-btn hidden" onclick="appLogic.logout()">Exit</button>
         <button class="sm-btn admin-btn" onclick="appLogic.openAdmin()">Ad</button>
@@ -407,7 +414,13 @@
             db.ref('messages').push({timestamp:Date.now(), text:t, target:document.getElementById('msg-target-room').value, user:currentUser.name, role:currentUser.role});
             document.getElementById('msg-text').value = '';
         },
-        updateClock: function() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); },
+        // --- Updated Clock Logic ---
+        updateClock: function() { 
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
+            const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('clock').textContent = `${dateStr} ${timeStr}`; 
+        },
         renderMap: function(d) {
             [1,2,3].forEach(id => {
                 const r = d[id] || {status:'ready',by:'-'};
@@ -436,12 +449,10 @@
         renderMessages: function(m) {
             const d = document.getElementById('message-list'); d.innerHTML='';
             
-            // --- Widget Update: Full Text with Scrolling ---
             const latestBox = document.getElementById('latest-chat-display');
             if (m.length > 0) {
                 const latest = m[0];
                 const tStr = new Date(latest.timestamp).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
-                // Show Full Text structure
                 latestBox.innerHTML = `
                     <div style="width:100%; display:flex; justify-content:space-between; font-size:0.85em; font-weight:bold; color:#005088; margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px;">
                         <span>${tStr}</span>
@@ -454,7 +465,6 @@
                 latestBox.innerHTML = '<span style="color:#ccc; align-self:center;">(なし)</span>';
             }
 
-            // --- Normal List Rendering ---
             if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージはありません</div>';
             m.forEach(v => {
                 try {
