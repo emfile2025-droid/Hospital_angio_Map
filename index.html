@@ -29,15 +29,7 @@
         header { background-color: #fff; padding: 0 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; height: var(--header-height); flex-shrink: 0; z-index: 20; padding-top: env(safe-area-inset-top); }
         .header-left h1 { margin: 0; font-size: 1rem; color: var(--primary-color); }
         .header-right { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; }
-        
-        /* Clock Update: Responsive Font Size */
-        #clock { 
-            font-family: monospace; 
-            font-weight: bold; 
-            font-size: clamp(0.7rem, 2.5vw, 1rem); /* Adjust size based on screen width */
-            white-space: nowrap;
-        }
-        
+        #clock { font-family: monospace; font-weight: bold; font-size: clamp(0.7rem, 2.5vw, 1rem); white-space: nowrap; }
         #connection-status { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; }
         .online { background: #4caf50 !important; box-shadow: 0 0 5px #4caf50; }
         button.sm-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
@@ -48,107 +40,37 @@
         .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 10px; padding-bottom: calc(var(--nav-height) + 20px); display: none; }
         .view-section.active { display: block; }
 
-        /* --- Map Layout --- */
-        .map-container { 
-            height: 100%; 
-            width: 100%;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center;
-        }
-        
+        /* Map Layout */
+        .map-container { height: 100%; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .floor-map-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 2vmin; 
-            background-color: var(--bg-floor);
-            padding: 2vmin;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            position: relative;
-            width: min(96vw, 130vh);     
-            height: min(75vh, 72vw);     
-            aspect-ratio: 4 / 3;         
-            margin: auto;
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2vmin; 
+            background-color: var(--bg-floor); padding: 2vmin; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: relative; width: min(96vw, 130vh); height: min(75vh, 72vw); aspect-ratio: 4 / 3; margin: auto;
         }
-
         .room-card { 
-            background: #cce4eb; 
-            border-radius: 6px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-            position: relative; 
-            user-select: none; 
-            cursor: pointer; 
-            touch-action: manipulation;
-            transition: transform 0.1s;
+            background: #cce4eb; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+            display: flex; flex-direction: column; overflow: hidden; position: relative; 
+            user-select: none; cursor: pointer; touch-action: manipulation; transition: transform 0.1s;
         }
         .room-card:active { transform: scale(0.98); }
-        .read-only .room-card { cursor: default; transform: none; }
+        .read-only .room-card { cursor: default; transform: none; opacity: 0.9; }
 
         .pos-top-left { grid-column: 1 / 2; grid-row: 1 / 2; }
         .pos-bottom-left { grid-column: 1 / 2; grid-row: 2 / 3; }
         .pos-bottom-right { grid-column: 2 / 3; grid-row: 2 / 3; }
-        
-        /* Top Right Chat Widget */
-        .pos-top-right-info { 
-            grid-column: 2 / 3; 
-            grid-row: 1 / 2; 
-            background: #fff; 
-            border: 2px solid #005088;
-        }
+        .pos-top-right-info { grid-column: 2 / 3; grid-row: 1 / 2; background: #fff; border: 2px solid #005088; }
 
-        .room-header { 
-            padding: 1vmin; font-size: clamp(0.8rem, 2vmin, 1.5rem); font-weight: bold; text-align: center; 
-            background: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(0,0,0,0.05); color: #333;
-        }
-        
-        .chat-widget-header {
-            background: #eef; color: #446; border-bottom: 1px solid #dde; font-size: clamp(0.8rem, 1.8vmin, 1.2rem);
-        }
-
-        .room-status-indicator { 
-            flex: 1; display: flex; justify-content: center; align-items: center; 
-            flex-direction: column; color: white; font-weight: bold; 
-            font-size: clamp(1.2rem, 4vmin, 3rem); 
-            text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
-        }
-        
-        /* Chat Widget Content */
-        .latest-chat-content {
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: flex-start;
-            align-items: flex-start;
-            text-align: left;
-            padding: 8px; 
-            overflow-y: auto;
-            width: 100%;
-            font-size: clamp(0.8rem, 2vmin, 1.1rem);
-            color: #333;
-            line-height: 1.4;
-            word-break: break-word;
-        }
-        
+        .room-header { padding: 1vmin; font-size: clamp(0.8rem, 2vmin, 1.5rem); font-weight: bold; text-align: center; background: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(0,0,0,0.05); color: #333; }
+        .chat-widget-header { background: #eef; color: #446; border-bottom: 1px solid #dde; font-size: clamp(0.8rem, 1.8vmin, 1.2rem); }
+        .room-status-indicator { flex: 1; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; font-weight: bold; font-size: clamp(1.2rem, 4vmin, 3rem); text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .latest-chat-content { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; text-align: left; padding: 8px; overflow-y: auto; width: 100%; font-size: clamp(0.8rem, 2vmin, 1.1rem); color: #333; line-height: 1.4; word-break: break-word; }
         .latest-chat-content::-webkit-scrollbar { width: 4px; }
         .latest-chat-content::-webkit-scrollbar-track { background: transparent; }
         .latest-chat-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-
-        .latest-chat-meta {
-            font-size: 0.75em; color: #888; align-self: flex-end; margin-top: auto; padding-top: 4px;
-        }
-
+        .latest-chat-meta { font-size: 0.75em; color: #888; align-self: flex-end; margin-top: auto; padding-top: 4px; }
         .status-ready { background-color: var(--status-ready); } 
         .status-busy { background-color: var(--status-busy); }
-        .room-footer { 
-            padding: 0.5vmin; font-size: clamp(0.6rem, 1.5vmin, 1rem); background: #fff; color: #555; 
-            text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-        }
+        .room-footer { padding: 0.5vmin; font-size: clamp(0.6rem, 1.5vmin, 1rem); background: #fff; color: #555; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Lists & Chat */
         .timeline-item { background: #fff; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.85rem; }
@@ -252,7 +174,10 @@
         <div class="input-group">
             <label>役割 (Role)</label>
             <select id="input-role" onchange="appLogic.onRoleChange()">
-                <option value="循環器科">循環器科</option><option value="放射線技術科">放射線技術科</option><option value="管理者">管理者 (Admin)</option><option value="参照者">参照者 (Viewer)</option>
+                <option value="循環器科/脳卒中">循環器科/脳卒中</option>
+                <option value="放射線技術科">放射線技術科</option>
+                <option value="管理者">管理者 (Admin)</option>
+                <option value="参照者">参照者 (Viewer)</option>
             </select>
         </div>
         <div id="name-input-container">
@@ -341,11 +266,20 @@
             document.getElementById('name-modal').style.display = 'none';
             document.getElementById('user-display').textContent = user.name;
             document.getElementById('logout-btn').classList.remove('hidden');
+            
+            // UI Logic Update for Ver 5.5.0
             if (user.role === '参照者') {
+                // Viewer: Status Change DISABLED, Chat DISABLED
                 document.getElementById('main-content-area').classList.add('read-only');
                 document.getElementById('chat-input-area').classList.add('hidden');
                 document.getElementById('chat-readonly-msg').classList.remove('hidden');
+            } else if (user.role === '循環器科/脳卒中') {
+                // Cardio/Stroke: Status Change DISABLED, Chat ENABLED
+                document.getElementById('main-content-area').classList.add('read-only');
+                document.getElementById('chat-input-area').classList.remove('hidden');
+                document.getElementById('chat-readonly-msg').classList.add('hidden');
             } else {
+                // Radiology/Admin: Everything ENABLED
                 document.getElementById('main-content-area').classList.remove('read-only');
                 document.getElementById('chat-input-area').classList.remove('hidden');
                 document.getElementById('chat-readonly-msg').classList.add('hidden');
@@ -360,9 +294,16 @@
             const role = document.getElementById('input-role').value;
             const cnt = document.getElementById('name-input-container');
             const btn = document.getElementById('start-btn');
-            if (role === '参照者') { cnt.style.display = 'none'; btn.textContent = "閲覧を開始"; }
-            else {
-                cnt.style.display = 'block'; btn.textContent = "開始";
+            
+            if (role === '参照者') {
+                // Viewer: Hide Name Input, Change Button Text
+                cnt.style.display = 'none'; 
+                btn.textContent = "閲覧を開始";
+            } else {
+                // Others: Show Name Input, Standard Button Text
+                cnt.style.display = 'block'; 
+                btn.textContent = "開始";
+                
                 const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
                 const n = h[role] || [];
                 const grp = document.getElementById('history-group');
@@ -385,13 +326,16 @@
                 const id = prompt("管理者ID"); if(id!=='185383') return alert("NG");
                 const pw = prompt("管理者PW"); if(pw!=='angio') return alert("NG");
             }
-            if (role === '参照者') { name = 'Guest Viewer'; }
-            else {
-                if (!name) return alert("氏名を入力");
+            
+            if (role === '参照者') {
+                name = 'Guest Viewer'; // No input required
+            } else {
+                if (!name) return alert("氏名を入力してください");
                 const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
                 if (!h[role]) h[role] = [];
                 if (!h[role].includes(name)) { h[role].unshift(name); h[role] = h[role].slice(0,5); localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
             }
+            
             currentUser = { name, role };
             localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             this.applyRoleUI(currentUser);
@@ -399,7 +343,9 @@
         logout: function() { if(confirm('退出?')){localStorage.removeItem(USER_KEY); location.reload();} },
         toggleRoom: function(id) {
             if (!currentUser.name) return this.showLoginModal();
-            if (currentUser.role === '参照者') return;
+            // Logic Update: Disabled for Viewer & Cardio/Stroke
+            if (currentUser.role === '参照者' || currentUser.role === '循環器科/脳卒中') return;
+            
             const r = globalRooms[id] || { status: 'ready' };
             const n = r.status === 'ready' ? 'busy' : 'ready';
             const ts = Date.now();
@@ -408,13 +354,14 @@
         },
         postMessage: function() {
             if (!currentUser.name) return this.showLoginModal();
+            // Disabled for Viewer
             if (currentUser.role === '参照者') return;
+
             const t = document.getElementById('msg-text').value.trim();
             if(!t) return;
             db.ref('messages').push({timestamp:Date.now(), text:t, target:document.getElementById('msg-target-room').value, user:currentUser.name, role:currentUser.role});
             document.getElementById('msg-text').value = '';
         },
-        // --- Updated Clock Logic ---
         updateClock: function() { 
             const now = new Date();
             const dateStr = now.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
