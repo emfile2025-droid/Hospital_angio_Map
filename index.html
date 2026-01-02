@@ -385,7 +385,12 @@
                 try {
                     const el = document.createElement('div');
                     el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
-                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP');
+                    const timeStr = new Date(v.timestamp).toLocaleString('ja-JP', {
+                        month: 'numeric', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    });
                     let rName = `Angio ${v.roomId}`;
                     if(v.roomId==1) rName="血管1"; if(v.roomId==2) rName="血管2"; if(v.roomId==3) rName="心臓";
                     el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>${rName}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
