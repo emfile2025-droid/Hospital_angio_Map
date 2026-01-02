@@ -422,7 +422,13 @@
                 try {
                     const el = document.createElement('div');
                     el.className = 'timeline-item'; el.style.borderLeftColor='#005088';
-                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP');
+                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP', {
+                        month: 'numeric', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    });
+                    
                     el.innerHTML = `<span class="time-badge">${timeStr} @${v.target}</span>${v.text}<br><span style="color:#555">by ${v.user}</span>`;
                     d.appendChild(el);
                 } catch(e) { console.error(e); }
