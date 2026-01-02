@@ -404,7 +404,7 @@
             const latestBox = document.getElementById('latest-chat-display');
             if (m.length > 0) {
                 const latest = m[0];
-                const tStr = new Date(latest.timestamp).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+                const tStr = new Date(latest.timestamp).toLocaleTimeString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
                 latestBox.innerHTML = `
                     <div style="width:100%; display:flex; justify-content:space-between; font-size:0.85em; font-weight:bold; color:#005088; margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px;">
                         <span>${tStr}</span>
