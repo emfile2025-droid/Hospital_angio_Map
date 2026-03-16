@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Angio Status Map (Tokyo)</title>
+    <title>Angio Status Map3 (Tokyo)</title>
     
     <meta name="theme-color" content="#5d4e46">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,6 +17,7 @@
             --bg-floor: #5d4e46; 
             --status-ready: #4caf50; 
             --status-busy: #e53935; 
+            --status-cond: #ffc107;
             --primary-color: #005088; 
             --nav-height: 60px; 
             --header-height: 50px; 
@@ -34,6 +35,7 @@
         .online { background: #4caf50 !important; box-shadow: 0 0 5px #4caf50; }
         button.sm-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
         button.admin-btn { background: #333; color: #fff; border: none; }
+        .btn-update { background: #fff; border-color: #bbb; font-size: 0.75rem; }
         
         /* Main Content */
         .main-content { flex: 1; position: relative; overflow: hidden; background: #f0f2f5; }
@@ -41,11 +43,11 @@
         .view-section.active { display: block; }
 
         /* Map Layout */
-        .map-container { height: 100%; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .map-container { width: 100%; display: flex; flex-direction: column; align-items: center; padding-bottom: 20px; }
         .floor-map-grid {
             display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2vmin; 
             background-color: var(--bg-floor); padding: 2vmin; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            position: relative; width: min(96vw, 130vh); height: min(75vh, 72vw); aspect-ratio: 4 / 3; margin: auto;
+            position: relative; width: min(96vw, 130vh); height: min(75vh, 72vw); aspect-ratio: 4 / 3; margin: 0 auto;
         }
         .room-card { 
             background: #cce4eb; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
@@ -53,7 +55,7 @@
             user-select: none; cursor: pointer; touch-action: manipulation; transition: transform 0.1s;
         }
         .room-card:active { transform: scale(0.98); }
-        .read-only .room-card { cursor: default; transform: none; opacity: 0.9; }
+        .read-only .room-card { cursor: default; transform: none; opacity: 0.95; }
 
         .pos-top-left { grid-column: 1 / 2; grid-row: 1 / 2; }
         .pos-bottom-left { grid-column: 1 / 2; grid-row: 2 / 3; }
@@ -72,9 +74,48 @@
         .status-busy { background-color: var(--status-busy); }
         .room-footer { padding: 0.5vmin; font-size: clamp(0.6rem, 1.5vmin, 1rem); background: #fff; color: #555; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        .nurse-status-row { padding: 4px 6px; font-size: clamp(0.7rem, 1.6vmin, 0.95rem); background: rgba(255,255,255,0.7); color: #444; text-align: center; border-top: 1px solid rgba(0,0,0,0.04); border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .nurse-status-label { font-weight: 600; color: #005088; }
+        .nurse-status-empty { color: #999; font-weight: normal; }
+        .nurse-status-call { color: #d32f2f; }      /* 入室呼出済み：やや強い赤系 */
+        .nurse-status-puncture { color: #f57c00; }  /* 穿刺開始：濃いオレンジ */
+        .nurse-status-finish { color: #f9a825; }    /* 処置終了：濃い黄色 */
+        .nurse-status-exit { color: #7cb342; }      /* 退室準備中：黄緑〜緑系 */
+        .nurse-buttons { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px 6px; justify-content: center; background: rgba(255,255,255,0.8); }
+        .nurse-chip { border: none; padding: 6px 8px; border-radius: 999px; font-size: 0.8rem; cursor: pointer; background: #e3f2fd; color: #005088; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+        .nurse-chip:active { transform: scale(0.96); opacity: 0.8; }
+        .nurse-chip.active { background: #005088; color: #fff; }
+        
+        /* Heart Monitor / Operator Section */
+        .operator-section { width: min(96vw, 130vh); margin: 15px auto 0; background: #fff; border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .operator-header { font-size: 0.9rem; font-weight: bold; color: #333; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .heart-container { display: flex; gap: 8px; flex-wrap: wrap; min-height: 30px; align-items: center; }
+        .heart-icon { font-size: 1.5rem; transition: transform 0.2s; text-shadow: 0 2px 2px rgba(0,0,0,0.1); }
+        .heart-green { color: var(--status-ready); }
+        .heart-yellow { color: var(--status-cond); }
+        .heart-red { color: var(--status-busy); }
+        
+        .operator-controls { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        .op-btn { padding: 8px 0; border: none; border-radius: 4px; color: #fff; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+        .op-btn:active { transform: scale(0.96); opacity: 0.8; }
+        .op-btn-green { background: var(--status-ready); }
+        .op-btn-yellow { background: var(--status-cond); color: #333; }
+        .op-btn-red { background: var(--status-busy); }
+        .op-btn-quit { background: #999; color: #fff; padding: 8px 12px; }
+        .op-btn-join { grid-column: 1 / -1; background: var(--primary-color); }
+
         /* Lists & Chat */
-        .timeline-item { background: #fff; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.85rem; }
-        .timeline-item.log-ready { border-left-color: var(--status-ready); } .timeline-item.log-busy { border-left-color: var(--status-busy); }
+        .timeline-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-items: flex-start; }
+        @media (max-width: 640px) {
+            .timeline-layout { grid-template-columns: 1fr; }
+        }
+        .timeline-column { background: #f9fafb; border-radius: 6px; padding: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-height: 40px; }
+        .timeline-column-title { font-size: 0.8rem; font-weight: bold; color: #555; margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; text-align: center; }
+        .timeline-column-body { max-height: calc(100vh - 180px); overflow-y: auto; padding-right: 2px; }
+        .timeline-item { background: #fff; padding: 8px; border-radius: 4px; margin-bottom: 6px; border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.03); font-size: 0.8rem; }
+        .timeline-item.log-ready { border-left-color: var(--status-ready); } 
+        .timeline-item.log-busy { border-left-color: var(--status-busy); }
+        .timeline-item.log-op { border-left-color: var(--status-cond); }
         .time-badge { font-size: 0.7rem; color: #999; display: block; margin-bottom: 2px; }
         .chat-footer { position: fixed; bottom: var(--nav-height); left: 0; width: 100%; background: #fff; padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 8px; z-index: 15; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         .chat-footer input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
@@ -83,6 +124,7 @@
         .nav-item { flex: 1; text-align: center; color: #888; font-size: 0.7rem; padding: 5px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
         .nav-item.active { color: var(--primary-color); font-weight: bold; }
         .nav-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
         .modal { background: #fff; padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal h3 { margin-top: 0; color: var(--primary-color); text-align: center;}
@@ -93,6 +135,7 @@
         .hidden { display: none !important; }
         table.admin-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
         table.admin-table th, td { border: 1px solid #eee; padding: 5px; }
+        .del-btn { background: #e53935; color: white; border: none; border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -102,7 +145,13 @@
 <body>
 
 <header>
-    <div class="header-left"><h1>Angio Status ver2.0<span id="connection-status"></span></h1></div>
+    <div class="header-left">
+        <h1>
+            Angio Status ver3.0
+            <span id="connection-status"></span>
+            <button class="sm-btn btn-update" onclick="updateApp()">🔄 更新</button>
+        </h1>
+    </div>
     <div class="header-right">
         <div id="clock">--/-- --:--</div>
         <div id="user-display" style="max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Guest</div>
@@ -115,32 +164,73 @@
     <div id="view-map" class="view-section active">
         <div class="map-container">
             <div class="floor-map-grid">
-                
                 <div class="room-card pos-top-left" onclick="appLogic.toggleRoom(2)">
                     <div class="room-header">14-19 血管撮影室2</div>
                     <div class="room-status-indicator" id="room-2-status">Sync</div>
+                    <div class="nurse-status-row">
+                        <span id="room-2-nurse-status" class="nurse-status-label nurse-status-empty">--</span>
+                    </div>
+                    <div class="nurse-buttons" id="room-2-nurse-buttons">
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(2, 'call', event)">入室呼出</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(2, 'puncture', event)">穿刺開始</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(2, 'finish', event)">処置終了</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(2, 'exit', event)">退室準備</button>
+                    </div>
                     <div class="room-footer" id="room-2-footer">--</div>
                 </div>
-
                 <div class="room-card pos-top-right-info" onclick="appLogic.switchView('chat', document.querySelectorAll('.nav-item')[2])">
                     <div class="room-header chat-widget-header">最新Chat</div>
                     <div id="latest-chat-display" class="latest-chat-content">
                         <span style="color:#ccc; align-self:center;">(なし)</span>
                     </div>
                 </div>
-
                 <div class="room-card pos-bottom-left" onclick="appLogic.toggleRoom(3)">
                     <div class="room-header">14-18 心臓血管</div>
                     <div class="room-status-indicator" id="room-3-status">Sync</div>
+                    <div class="nurse-status-row">
+                        <span id="room-3-nurse-status" class="nurse-status-label nurse-status-empty">--</span>
+                    </div>
+                    <div class="nurse-buttons" id="room-3-nurse-buttons">
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(3, 'call', event)">入室呼出</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(3, 'puncture', event)">穿刺開始</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(3, 'finish', event)">処置終了</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(3, 'exit', event)">退室準備</button>
+                    </div>
                     <div class="room-footer" id="room-3-footer">--</div>
                 </div>
-
                 <div class="room-card pos-bottom-right" onclick="appLogic.toggleRoom(1)">
                     <div class="room-header">14-17 血管撮影室1</div>
                     <div class="room-status-indicator" id="room-1-status">Sync</div>
+                    <div class="nurse-status-row">
+                        <span id="room-1-nurse-status" class="nurse-status-label nurse-status-empty">--</span>
+                    </div>
+                    <div class="nurse-buttons" id="room-1-nurse-buttons">
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(1, 'call', event)">入室呼出</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(1, 'puncture', event)">穿刺開始</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(1, 'finish', event)">処置終了</button>
+                        <button type="button" class="nurse-chip" onclick="appLogic.updateNurseStatus(1, 'exit', event)">退室準備</button>
+                    </div>
                     <div class="room-footer" id="room-1-footer">--</div>
                 </div>
+            </div>
 
+            <div class="operator-section">
+                <div class="operator-header">
+                    <span>PCIオペレーター待機状況</span>
+                    <span id="op-count" style="font-size:0.8rem; color:#666;">--名</span>
+                </div>
+                <div class="heart-container" id="heart-monitor">
+                    <span style="color:#ccc; font-size:0.8rem;">登録なし</span>
+                </div>
+                <div id="my-operator-controls" class="operator-controls hidden">
+                    <button class="op-btn op-btn-green" onclick="appLogic.updateOpStatus('green')">可(緑)</button>
+                    <button class="op-btn op-btn-yellow" onclick="appLogic.updateOpStatus('yellow')">条件(黄)</button>
+                    <button class="op-btn op-btn-red" onclick="appLogic.updateOpStatus('red')">不可(赤)</button>
+                    <button class="op-btn op-btn-quit" onclick="appLogic.unregisterOp()">解除</button>
+                </div>
+                <div id="join-operator-btn" class="operator-controls hidden">
+                    <button class="op-btn op-btn-join" onclick="appLogic.setOperator(true)">PCIオペレーター登録</button>
+                </div>
             </div>
         </div>
     </div>
@@ -176,8 +266,9 @@
             <select id="input-role" onchange="appLogic.onRoleChange()">
                 <option value="循環器科/脳卒中">循環器科/脳卒中</option>
                 <option value="放射線技術科">放射線技術科</option>
-                <option value="管理者">管理者 (Admin)</option>
+                <option value="看護師">看護師</option>
                 <option value="参照者">参照者 (Viewer)</option>
+                <option value="管理者">管理者 (Admin)</option>
             </select>
         </div>
         <div id="name-input-container">
@@ -190,10 +281,29 @@
     </div>
 </div>
 
+<div id="op-confirm-modal" class="modal-overlay">
+    <div class="modal" style="text-align:center;">
+        <h3 style="color:#005088;">オペレーター登録</h3>
+        <p>あなたはPCIオペレーターとして<br>登録しますか？</p>
+        <p style="font-size:0.8rem; color:#666;">登録すると、自身の待機状況（可/不可）を<br>共有できるようになります。</p>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="primary-btn" style="background:#ccc; color:#333;" onclick="appLogic.setOperator(false)">いいえ</button>
+            <button class="primary-btn" onclick="appLogic.setOperator(true)">はい (登録)</button>
+        </div>
+    </div>
+</div>
+
 <div id="admin-modal" class="modal-overlay">
     <div class="modal" style="max-width:600px;">
         <div style="display:flex; justify-content:space-between; align-items:center;"><h3>管理者モード</h3><button class="sm-btn" onclick="document.getElementById('admin-modal').style.display='none'">閉じる</button></div>
-        <p>本日の使用回数</p><div id="daily-stats" style="display:flex; gap:10px; margin-bottom:15px; justify-content:space-around;"></div>
+        <div style="margin-bottom:20px;">
+            <h4 style="margin:10px 0; color:#005088;">PCIオペレーター一覧</h4>
+            <div style="max-height:150px; overflow-y:auto;">
+                <table class="admin-table"><thead><tr><th>名前</th><th>状態</th><th>最終更新</th><th>操作</th></tr></thead><tbody id="admin-op-table"></tbody></table>
+            </div>
+        </div>
+        <h4 style="margin:10px 0; color:#005088;">本日の部屋使用状況</h4>
+        <div id="daily-stats" style="display:flex; gap:10px; margin-bottom:15px; justify-content:space-around;"></div>
         <div style="max-height: 200px; overflow-y: auto;">
             <table class="admin-table"><thead><tr><th>時間</th><th>部屋</th><th>St</th><th>User</th></tr></thead><tbody id="admin-log-table"></tbody></table>
         </div>
@@ -205,39 +315,73 @@
         window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err)); });
     }
 
-    // ★重要★: ここに新しいFirestoreプロジェクト(Tokyo)のConfigを貼り付けてください
+    function updateApp() {
+        if (!confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) return;
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister());
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(names => { names.forEach(n => caches.delete(n)); });
+        }
+        setTimeout(() => window.location.reload(true), 500);
+    }
+
+    // Tokyo Firestore プロジェクト設定
     const firebaseConfig = {
-    apiKey: "AIzaSyCFGAgxhqogLDgzjj6N6UoGnXni7NV2LdI",
-    authDomain: "angiomap-tokyo-region.firebaseapp.com",
-    projectId: "angiomap-tokyo-region",
-    storageBucket: "angiomap-tokyo-region.firebasestorage.app",
-    messagingSenderId: "695591507324",
-    appId: "1:695591507324:web:1c88d7f6f6aff89d4d80f9",
-    measurementId: "G-YFNF0Z1TVK"
+        apiKey: "AIzaSyCFGAgxhqogLDgzjj6N6UoGnXni7NV2LdI",
+        authDomain: "angiomap-tokyo-region.firebaseapp.com",
+        projectId: "angiomap-tokyo-region",
+        storageBucket: "angiomap-tokyo-region.firebasestorage.app",
+        messagingSenderId: "695591507324",
+        appId: "1:695591507324:web:1c88d7f6f6aff89d4d80f9",
+        measurementId: "G-YFNF0Z1TVK"
     };
 
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore(); // Firestoreを使用
+    const db = firebase.firestore();
     const auth = firebase.auth();
+
     const USER_KEY = "angio_sys_user_v3";
     const HISTORY_KEY = "angio_user_history";
-    let currentUser = { name: null, role: null };
-    let globalLogs = []; let globalRooms = {};
+    const OP_PREF_KEY = "angio_op_prefs";
+
+    let currentUser = { name: null, role: null, isOp: false, uid: null };
+    let globalLogs = [];
+    let globalRooms = {};
+    let globalOps = {};
+
+    const NURSE_STATUS_LABELS = {
+        call: '入室呼出済み',
+        puncture: '穿刺開始',
+        finish: '処置終了',
+        exit: '退室準備中'
+    };
 
     const appLogic = {
         init: function() {
-            this.loadUser(); this.initAuth();
-            setInterval(this.updateClock, 1000); this.updateClock();
-            window.addEventListener('resize', () => { document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`); });
+            this.loadUser();
+            this.initAuth();
+            setInterval(this.updateClock, 1000);
+            this.updateClock();
+            window.addEventListener('resize', () => {
+                document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+            });
         },
         initAuth: function() {
             const statusEl = document.getElementById('connection-status');
-            auth.signInAnonymously().catch(e => { console.error(e); statusEl.classList.add('error'); });
+            auth.signInAnonymously().catch(e => {
+                console.error(e);
+                statusEl.classList.add('error');
+            });
             auth.onAuthStateChanged(u => { 
-                if(u){
+                if (u) {
+                    currentUser.uid = u.uid;
                     this.initListeners();
+                    if (currentUser.isOp) this.syncOpStatus();
                     statusEl.classList.add('online');
-                }else{
+                } else {
                     statusEl.classList.remove('online');
                 } 
             });
@@ -265,39 +409,89 @@
                 snap.forEach(doc => arr.push(doc.data()));
                 this.renderMessages(arr);
             });
+
+            // Operators Listener (Firestore)
+            db.collection('operators').onSnapshot(snap => {
+                let ops = {};
+                snap.forEach(doc => { ops[doc.id] = doc.data(); });
+                globalOps = ops;
+                this.renderOperators(globalOps);
+            });
         },
         switchView: function(viewId, navEl) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById('view-' + viewId).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            if(navEl) navEl.classList.add('active');
+            if (navEl) navEl.classList.add('active');
         },
         loadUser: function() {
             const saved = localStorage.getItem(USER_KEY);
-            if (saved) { currentUser = JSON.parse(saved); this.applyRoleUI(currentUser); } 
-            else { this.showLoginModal(); }
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    currentUser = Object.assign({ name: null, role: null, isOp: false, uid: null }, parsed);
+                } catch(e) {
+                    currentUser = { name: null, role: null, isOp: false, uid: null };
+                }
+                this.applyRoleUI(currentUser);
+            } else {
+                this.showLoginModal();
+            }
         },
         applyRoleUI: function(user) {
             document.getElementById('name-modal').style.display = 'none';
-            document.getElementById('user-display').textContent = user.name;
+            document.getElementById('user-display').textContent = user.name || 'Guest';
             document.getElementById('logout-btn').classList.remove('hidden');
             
             const mainArea = document.getElementById('main-content-area');
             const chatInput = document.getElementById('chat-input-area');
             const chatRead = document.getElementById('chat-readonly-msg');
+            const opControls = document.getElementById('my-operator-controls');
+            const joinBtn = document.getElementById('join-operator-btn');
+            const nurseButtonGroups = document.querySelectorAll('.nurse-buttons');
 
             if (user.role === '参照者') {
+                // 参照者: マップ操作不可・チャット投稿不可
+                mainArea.classList.add('read-only');
+                chatInput.classList.add('hidden');
+                chatRead.classList.remove('hidden');
+            } else if (user.role === '看護師') {
+                // 看護師: マップ操作不可・チャット投稿不可（看護師ボタンのみ操作可）
                 mainArea.classList.add('read-only');
                 chatInput.classList.add('hidden');
                 chatRead.classList.remove('hidden');
             } else if (user.role === '循環器科/脳卒中') {
+                // 循環器: マップ操作不可・チャット投稿可
                 mainArea.classList.add('read-only');
                 chatInput.classList.remove('hidden');
                 chatRead.classList.add('hidden');
             } else {
+                // 放射線技師・管理者など: マップ操作可・チャット投稿可
                 mainArea.classList.remove('read-only');
                 chatInput.classList.remove('hidden');
                 chatRead.classList.add('hidden');
+            }
+
+            const isNurse = user.role === '看護師';
+            nurseButtonGroups.forEach(el => {
+                if (isNurse) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            if (user.role === '循環器科/脳卒中') {
+                if (user.isOp) {
+                    opControls.classList.remove('hidden');
+                    joinBtn.classList.add('hidden');
+                } else {
+                    opControls.classList.add('hidden');
+                    joinBtn.classList.remove('hidden');
+                }
+            } else {
+                opControls.classList.add('hidden');
+                joinBtn.classList.add('hidden');
             }
         },
         showLoginModal: function() {
@@ -323,63 +517,179 @@
                 const sel = document.getElementById('history-select');
                 if (n.length > 0) {
                     grp.style.display = 'block'; sel.innerHTML = '<option value="">-- 履歴から選択 --</option>';
-                    n.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-                } else { grp.style.display = 'none'; }
+                    n.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+                } else { 
+                    grp.style.display = 'none'; 
+                }
                 document.getElementById('input-name').value = '';
             }
         },
         onHistorySelect: function() {
             const v = document.getElementById('history-select').value;
-            if(v) document.getElementById('input-name').value = v;
+            if (v) document.getElementById('input-name').value = v;
         },
         registerUser: function() {
             const role = document.getElementById('input-role').value;
             let name = document.getElementById('input-name').value.trim();
+
             if (role === '管理者') {
-                const id = prompt("管理者ID"); if(id!=='185383') return alert("NG");
-                const pw = prompt("管理者PW"); if(pw!=='angio') return alert("NG");
+                const id = prompt("管理者ID"); if (id!=='185383') return alert("NG");
+                const pw = prompt("管理者PW"); if (pw!=='angio') return alert("NG");
             }
-            
+
             if (role === '参照者') {
                 name = 'Guest Viewer'; 
             } else {
                 if (!name) return alert("氏名を入力してください");
                 const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
                 if (!h[role]) h[role] = [];
-                if (!h[role].includes(name)) { h[role].unshift(name); h[role] = h[role].slice(0,5); localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
+                if (!h[role].includes(name)) { 
+                    h[role].unshift(name); 
+                    h[role] = h[role].slice(0,5); 
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); 
+                }
             }
-            
-            currentUser = { name, role };
+
+            const prefs = JSON.parse(localStorage.getItem(OP_PREF_KEY) || '{}');
+            let isOp = false;
+            let skipModal = false;
+
+            if (role === '循環器科/脳卒中') {
+                if (prefs[name] === true) {
+                    isOp = true;
+                    skipModal = true;
+                } else if (prefs[name] === false) {
+                    isOp = false;
+                    skipModal = true;
+                }
+            }
+
+            currentUser = { 
+                name, 
+                role, 
+                isOp, 
+                uid: auth.currentUser ? auth.currentUser.uid : currentUser.uid 
+            };
             localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
             this.applyRoleUI(currentUser);
-        },
-        logout: function() { if(confirm('退出?')){localStorage.removeItem(USER_KEY); location.reload();} },
-        
-        // Firestore Write Logic
-        toggleRoom: function(id) {
-            if (!currentUser.name) return this.showLoginModal();
-            if (currentUser.role === '参照者' || currentUser.role === '循環器科/脳卒中') return;
-            
-            const r = globalRooms[id] || { status: 'ready' };
-            const n = r.status === 'ready' ? 'busy' : 'ready';
-            const ts = Date.now();
-            
-            // 部屋の状態を更新 (set/merge)
-            db.collection('rooms').doc(String(id)).set({status:n, lastChange:ts, by:currentUser.name, role:currentUser.role}, {merge:true});
-            
-            // ログを追加 (add)
-            db.collection('logs').add({timestamp:ts, type:'status_change', roomId:id, status:n, user:currentUser.name, role:currentUser.role});
-        },
-        postMessage: function() {
-            if (!currentUser.name) return this.showLoginModal();
-            if (currentUser.role === '参照者') return;
 
-            const t = document.getElementById('msg-text').value.trim();
-            if(!t) return;
+            if (role === '循環器科/脳卒中' && !skipModal) {
+                document.getElementById('op-confirm-modal').style.display = 'flex';
+            }
+        },
+        setOperator: function(choice) {
+            document.getElementById('op-confirm-modal').style.display = 'none';
             
-            // メッセージを追加 (add)
-            db.collection('messages').add({timestamp:Date.now(), text:t, target:document.getElementById('msg-target-room').value, user:currentUser.name, role:currentUser.role});
-            document.getElementById('msg-text').value = '';
+            const prefs = JSON.parse(localStorage.getItem(OP_PREF_KEY) || '{}');
+            prefs[currentUser.name] = choice;
+            localStorage.setItem(OP_PREF_KEY, JSON.stringify(prefs));
+
+            if (choice) {
+                currentUser.isOp = true;
+                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                this.applyRoleUI(currentUser);
+
+                if (currentUser.uid) {
+                    db.collection('operators').get().then(snap => {
+                        const now = Date.now();
+                        let existingTime = now;
+
+                        // 既存 registrationTime があれば再利用
+                        const myDoc = snap.docs.find(d => d.id === currentUser.uid);
+                        if (myDoc && myDoc.data().registrationTime) {
+                            existingTime = myDoc.data().registrationTime;
+                        }
+
+                        // 同名の他のactiveを無効化（任意）
+                        snap.forEach(doc => {
+                            const op = doc.data();
+                            if (op.name === currentUser.name && op.active && doc.id !== currentUser.uid) {
+                                db.collection('operators').doc(doc.id).set({ active: false }, { merge: true });
+                            }
+                        });
+
+                        const data = {
+                            status: 'green',
+                            name: currentUser.name,
+                            updated: Date.now(),
+                            registrationTime: existingTime,
+                            active: true
+                        };
+                        db.collection('operators').doc(currentUser.uid).set(data);
+                    });
+                }
+            } else {
+                currentUser.isOp = false;
+                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                this.applyRoleUI(currentUser);
+            }
+        },
+        logout: function() {
+            if (confirm('退出?')) {
+                localStorage.removeItem(USER_KEY);
+                location.reload();
+            }
+        },
+        adminDeleteOp: function(uid) {
+            if (confirm('このオペレーターを強制削除しますか？\n（復元できません）')) {
+                db.collection('operators').doc(uid).delete();
+            }
+        },
+        updateOpStatus: function(color) {
+            if (!currentUser.uid) return;
+            db.collection('operators').doc(currentUser.uid).get().then(doc => {
+                const current = doc.exists ? doc.data() : {};
+                const now = Date.now();
+                const newData = {
+                    status: color,
+                    name: currentUser.name, 
+                    updated: now,
+                    registrationTime: current.registrationTime || now,
+                    active: true 
+                };
+                db.collection('operators').doc(currentUser.uid).set(newData);
+                db.collection('logs').add({
+                    type: 'op_status',
+                    status: color,
+                    uid: currentUser.uid,
+                    timestamp: now
+                });
+            });
+        },
+        unregisterOp: function() {
+            if (!currentUser.uid) return;
+            if (confirm('オペレーター登録を解除しますか？')) {
+                db.collection('operators').doc(currentUser.uid).set({ active: false }, { merge: true });
+                
+                const prefs = JSON.parse(localStorage.getItem(OP_PREF_KEY) || '{}');
+                delete prefs[currentUser.name];
+                localStorage.setItem(OP_PREF_KEY, JSON.stringify(prefs));
+
+                currentUser.isOp = false;
+                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                this.applyRoleUI(currentUser);
+            }
+        },
+        syncOpStatus: function() {
+            if (!currentUser.uid) return;
+            db.collection('operators').doc(currentUser.uid).get().then(doc => {
+                if (!doc.exists) {
+                    const now = Date.now();
+                    const data = {
+                        status: 'green',
+                        name: currentUser.name,
+                        updated: now,
+                        registrationTime: now,
+                        active: true
+                    };
+                    db.collection('operators').doc(currentUser.uid).set(data);
+                } else {
+                    const val = doc.data();
+                    if (val.active === false) {
+                        db.collection('operators').doc(currentUser.uid).set({ active: true }, { merge: true });
+                    }
+                }
+            });
         },
         updateClock: function() { 
             const now = new Date();
@@ -387,44 +697,287 @@
             const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
             document.getElementById('clock').textContent = `${dateStr} ${timeStr}`; 
         },
+        toggleRoom: function(id) {
+            if (!currentUser.name) return this.showLoginModal();
+            if (currentUser.role === '参照者' || currentUser.role === '循環器科/脳卒中' || currentUser.role === '看護師') return;
+            
+            const ts = Date.now();
+            const roomDocId = String(id);
+            const r = globalRooms[id] || { status: 'ready' };
+            const currentStatus = r.status || 'ready';
+            const nextStatus = currentStatus === 'ready' ? 'busy' : 'ready';
+
+            // 既存フィールドに加えて、セッション管理用フィールドを扱う
+            let roomUpdate = {
+                status: nextStatus,
+                lastChange: ts,
+                by: currentUser.name,
+                role: currentUser.role
+            };
+
+            // ログ共通部分
+            const baseLog = {
+                timestamp: ts,
+                type: 'status_change',
+                roomId: id,
+                status: nextStatus,
+                user: currentUser.name,
+                role: currentUser.role,
+                isValid: true
+            };
+
+            // ready → busy（セッション開始）
+            if (currentStatus === 'ready' && nextStatus === 'busy') {
+                const sessionId = r.currentSessionId || (roomDocId + '-' + ts);
+
+                roomUpdate.currentSessionId = sessionId;
+                roomUpdate.currentStartTime = ts;
+
+                db.collection('rooms').doc(roomDocId).set(roomUpdate, { merge: true });
+
+                db.collection('logs').add(Object.assign({}, baseLog, {
+                    event: 'start',
+                    sessionId: sessionId
+                }));
+                return;
+            }
+
+            // busy → ready（セッション終了）
+            if (currentStatus === 'busy' && nextStatus === 'ready') {
+                const sessionId = r.currentSessionId || (roomDocId + '-' + ts);
+                let durationSec = null;
+
+                if (r.currentStartTime && typeof r.currentStartTime === 'number') {
+                    durationSec = Math.max(0, Math.floor((ts - r.currentStartTime) / 1000));
+                }
+
+                roomUpdate.currentSessionId = null;
+                roomUpdate.currentStartTime = null;
+
+                db.collection('rooms').doc(roomDocId).set(roomUpdate, { merge: true });
+
+                const endLog = Object.assign({}, baseLog, {
+                    event: 'end',
+                    sessionId: sessionId
+                });
+                if (durationSec !== null) {
+                    endLog.durationSec = durationSec;
+                }
+                db.collection('logs').add(endLog);
+                return;
+            }
+
+            // それ以外の状態遷移（想定外ケース）は従来どおり最低限のログだけ残す
+            db.collection('rooms').doc(roomDocId).set(roomUpdate, { merge: true });
+            db.collection('logs').add(baseLog);
+        },
+        updateNurseStatus: function(roomId, key, ev) {
+            if (ev && typeof ev.stopPropagation === 'function') {
+                ev.stopPropagation();
+            }
+            if (!currentUser.name) return this.showLoginModal();
+            if (currentUser.role !== '看護師' && currentUser.role !== '管理者') return;
+
+            const label = NURSE_STATUS_LABELS[key];
+            if (!label) return;
+
+            const ts = Date.now();
+            const roomDocId = String(roomId);
+            const currentRoom = globalRooms[roomId] || {};
+            const currentStatus = currentRoom.nurseStatus || null;
+            const nextStatus = currentStatus === label ? null : label;
+
+            const data = {
+                nurseStatus: nextStatus,
+                nurseStatusUpdated: ts,
+                nurseUser: nextStatus ? currentUser.name : null
+            };
+
+            db.collection('rooms').doc(roomDocId).set(data, { merge: true });
+        },
+        postMessage: function() {
+            if (!currentUser.name) return this.showLoginModal();
+            if (currentUser.role === '参照者') return;
+
+            const t = document.getElementById('msg-text').value.trim();
+            if (!t) return;
+            
+            db.collection('messages').add({
+                timestamp: Date.now(),
+                text: t,
+                target: document.getElementById('msg-target-room').value,
+                user: currentUser.name,
+                role: currentUser.role
+            });
+            document.getElementById('msg-text').value = '';
+        },
         renderMap: function(d) {
             [1,2,3].forEach(id => {
-                const r = d[id] || {status:'ready',by:'-'};
+                const r = d[id] || { status:'ready', by:'-' };
                 const st = document.getElementById(`room-${id}-status`);
-                st.className='room-status-indicator '+(r.status==='ready'?'status-ready':'status-busy');
-                st.textContent=r.status==='ready'?'READY':'IN USE';
-                document.getElementById(`room-${id}-footer`).textContent=r.lastChange?`${new Date(r.lastChange).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} - ${r.by}`:'--';
+                st.className = 'room-status-indicator ' + (r.status==='ready' ? 'status-ready' : 'status-busy');
+                st.textContent = r.status==='ready' ? 'READY' : 'IN USE';
+
+                const footerEl = document.getElementById(`room-${id}-footer`);
+                footerEl.textContent = r.lastChange
+                    ? `${new Date(r.lastChange).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} - ${r.by}`
+                    : '--';
+
+                const nurseStatusEl = document.getElementById(`room-${id}-nurse-status`);
+                if (nurseStatusEl) {
+                    const text = r.nurseStatus || '--';
+                    nurseStatusEl.textContent = text;
+
+                    nurseStatusEl.classList.remove(
+                        'nurse-status-empty',
+                        'nurse-status-call',
+                        'nurse-status-puncture',
+                        'nurse-status-finish',
+                        'nurse-status-exit'
+                    );
+
+                    if (!r.nurseStatus) {
+                        nurseStatusEl.classList.add('nurse-status-empty');
+                    } else if (r.nurseStatus === NURSE_STATUS_LABELS.call) {
+                        nurseStatusEl.classList.add('nurse-status-call');
+                    } else if (r.nurseStatus === NURSE_STATUS_LABELS.puncture) {
+                        nurseStatusEl.classList.add('nurse-status-puncture');
+                    } else if (r.nurseStatus === NURSE_STATUS_LABELS.finish) {
+                        nurseStatusEl.classList.add('nurse-status-finish');
+                    } else if (r.nurseStatus === NURSE_STATUS_LABELS.exit) {
+                        nurseStatusEl.classList.add('nurse-status-exit');
+                    }
+                }
+
+                const btnContainer = document.getElementById(`room-${id}-nurse-buttons`);
+                if (btnContainer) {
+                    const buttons = btnContainer.querySelectorAll('.nurse-chip');
+                    buttons.forEach(btn => {
+                        const key = btn.getAttribute('onclick') || '';
+                        if (r.nurseStatus && key.indexOf("'puncture'") !== -1 && r.nurseStatus === NURSE_STATUS_LABELS.puncture) {
+                            btn.classList.add('active');
+                        } else if (r.nurseStatus && key.indexOf("'call'") !== -1 && r.nurseStatus === NURSE_STATUS_LABELS.call) {
+                            btn.classList.add('active');
+                        } else if (r.nurseStatus && key.indexOf("'finish'") !== -1 && r.nurseStatus === NURSE_STATUS_LABELS.finish) {
+                            btn.classList.add('active');
+                        } else if (r.nurseStatus && key.indexOf("'exit'") !== -1 && r.nurseStatus === NURSE_STATUS_LABELS.exit) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                }
             });
         },
         renderTimeline: function(l) {
-            const d = document.getElementById('timeline-list'); d.innerHTML='';
-            // Firestoreから降順で来るので、そのまま表示
-            if(l.length === 0) { return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">履歴はありません</div>'; }
-            l.forEach(v => {
-                try {
-                    const el = document.createElement('div');
-                    el.className = `timeline-item ${v.status==='ready'?'log-ready':'log-busy'}`;
-                    const timeStr = new Date(v.timestamp).toLocaleString('ja-JP', {
-                        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                    });
-                    let rName = `Angio ${v.roomId}`;
-                    if(v.roomId==1) rName="血管1"; if(v.roomId==2) rName="血管2"; if(v.roomId==3) rName="心臓";
-                    el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>${rName}</strong>: ${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
-                    d.appendChild(el);
-                } catch(e) { console.error('Render Error:', e); }
+            const container = document.getElementById('timeline-list'); 
+            container.innerHTML = '';
+
+            const validLogs = l.filter(v => v && (v.timestamp || v.updated));
+            if (validLogs.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#ccc;padding:20px">履歴はありません</div>';
+                return;
+            }
+
+            // 部屋ごとにログを仕分け（status_change / nurse_status を対象）
+            const roomLogs = { 1: [], 2: [], 3: [] };
+            const otherLogs = [];
+
+            validLogs.forEach(v => {
+                if (v.roomId === 1 || v.roomId === 2 || v.roomId === 3) {
+                    roomLogs[v.roomId].push(v);
+                } else {
+                    otherLogs.push(v);
+                }
             });
+
+            [1,2,3].forEach(id => {
+                // 新しいものが先頭になるように降順ソート
+                roomLogs[id].sort((a,b) => (b.timestamp || b.updated || 0) - (a.timestamp || a.updated || 0));
+            });
+
+            let html = '<div class="timeline-layout">';
+            const roomNames = {1:'血管1',2:'血管2',3:'心臓'};
+
+            [1,2,3].forEach(id => {
+                html += `<div class="timeline-column"><h4 class="timeline-column-title">${roomNames[id]}</h4><div class="timeline-column-body" id="timeline-room-${id}"></div></div>`;
+            });
+            html += '</div>';
+
+            html += '<div style="margin-top:10px;"><h4 style="margin:6px 0 4px;font-size:0.8rem;color:#555;border-bottom:1px solid #e5e7eb;">その他 (オペレーター等)</h4><div id="timeline-others"></div></div>';
+
+            container.innerHTML = html;
+
+            const makeTime = v => {
+                const baseTime = v.timestamp || v.updated;
+                return new Date(baseTime).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            };
+
+            const appendTo = (parentId, el) => {
+                const parent = document.getElementById(parentId);
+                if (parent) parent.appendChild(el);
+            };
+
+            // 部屋ごとのログ描画（新しいものから順に）
+            [1,2,3].forEach(id => {
+                roomLogs[id].forEach(v => {
+                    try {
+                        const el = document.createElement('div');
+                        const timeStr = makeTime(v);
+
+                        if (v.type === 'nurse_status') {
+                            el.className = 'timeline-item';
+                            const statusText = v.status || 'クリア';
+                            el.innerHTML = `<span class="time-badge">${timeStr}</span>【Ns】${statusText}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                        } else {
+                            el.className = `timeline-item ${v.status==='ready' ? 'log-ready' : 'log-busy'}`;
+                            el.innerHTML = `<span class="time-badge">${timeStr}</span>${v.status==='busy'?'開始':'終了'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                        }
+                        appendTo(`timeline-room-${id}`, el);
+                    } catch(e) { console.error('Render Error (room):', e); }
+                });
+            });
+
+            // その他ログ（オペレーター等）も新しいものから順に
+            otherLogs
+                .sort((a,b) => (b.timestamp || b.updated || 0) - (a.timestamp || a.updated || 0))
+                .forEach(v => {
+                    try {
+                        const el = document.createElement('div');
+                        const timeStr = makeTime(v);
+
+                        if (v.type === 'op_status') {
+                            el.className = 'timeline-item log-op';
+                            let statusText = "不明";
+                            if (v.status === 'green') statusText = "🟢 対応可";
+                            if (v.status === 'yellow') statusText = "🟡 条件付";
+                            if (v.status === 'red') statusText = "🔴 対応不可";
+                            el.innerHTML = `<span class="time-badge">${timeStr}</span><strong>PCI Op</strong>: ${statusText}`;
+                        } else {
+                            el.className = 'timeline-item';
+                            el.innerHTML = `<span class="time-badge">${timeStr}</span>${v.type || 'その他'}<br><span style="color:#555">by ${v.user||'Unknown'}</span>`;
+                        }
+                        appendTo('timeline-others', el);
+                    } catch(e) { console.error('Render Error (other):', e); }
+                });
         },
         renderMessages: function(m) {
-            const d = document.getElementById('message-list'); d.innerHTML='';
+            const d = document.getElementById('message-list'); 
+            d.innerHTML = '';
             
             const latestBox = document.getElementById('latest-chat-display');
             if (m.length > 0) {
                 const latest = m[0]; // 先頭が最新
-                const tStr = new Date(latest.timestamp).toLocaleTimeString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                const latestDt = new Date(latest.timestamp);
+                const tStr = latestDt.toLocaleString('ja-JP', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
                 latestBox.innerHTML = `
                     <div style="width:100%; display:flex; justify-content:space-between; font-size:0.85em; font-weight:bold; color:#005088; margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px;">
-                        <span>${tStr}</span>
-                        <span>@${latest.target}</span>
+                        <span>${tStr}</span><span>@${latest.target}</span>
                     </div>
                     <div style="width:100%; margin-bottom:4px;">${latest.text}</div>
                     <div class="latest-chat-meta">by ${latest.user}</div>
@@ -433,41 +986,105 @@
                 latestBox.innerHTML = '<span style="color:#ccc; align-self:center;">(なし)</span>';
             }
 
-            if(m.length===0) return d.innerHTML='<div style="text-align:center;color:#ccc;padding:20px">メッセージはありません</div>';
+            if (m.length === 0) {
+                d.innerHTML = '<div style="text-align:center;color:#ccc;padding:20px">メッセージはありません</div>';
+                return;
+            }
+
             m.forEach(v => {
                 try {
                     const el = document.createElement('div');
-                    el.className = 'timeline-item'; el.style.borderLeftColor='#005088';
-                    const timeStr = new Date(v.timestamp).toLocaleTimeString('ja-JP', {
-                        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    el.className = 'timeline-item'; 
+                    el.style.borderLeftColor = '#005088';
+                    const dt = new Date(v.timestamp);
+                    const timeStr = dt.toLocaleString('ja-JP', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
                     });
-                    
                     el.innerHTML = `<span class="time-badge">${timeStr} @${v.target}</span>${v.text}<br><span style="color:#555">by ${v.user}</span>`;
                     d.appendChild(el);
                 } catch(e) { console.error(e); }
             });
         },
+        renderOperators: function(ops) {
+            const container = document.getElementById('heart-monitor');
+            container.innerHTML = '';
+            
+            const opArray = Object.keys(ops)
+                .map(uid => Object.assign({ uid }, ops[uid]))
+                .filter(op => op.active !== false)
+                .sort((a, b) => (a.registrationTime || 0) - (b.registrationTime || 0));
+            
+            opArray.forEach(op => {
+                const span = document.createElement('span');
+                span.className = `heart-icon heart-${op.status}`;
+                span.textContent = '♥';
+                container.appendChild(span);
+            });
+            
+            document.getElementById('op-count').textContent = `${opArray.length}名`;
+            if (opArray.length === 0) {
+                container.innerHTML = '<span style="color:#ccc; font-size:0.8rem;">登録なし</span>';
+            }
+        },
         openAdmin: function() {
-            if(currentUser.role!=='管理者'){ const i=prompt("ID"); if(i!=='185383')return; const p=prompt("PW"); if(p!=='angio')return; }
-            document.getElementById('admin-modal').style.display='flex'; this.renderAdmin();
+            if (currentUser.role!=='管理者') { 
+                const i = prompt("ID"); if (i!=='185383') return; 
+                const p = prompt("PW"); if (p!=='angio') return; 
+            }
+            document.getElementById('admin-modal').style.display='flex'; 
+            this.renderAdmin();
         },
         renderAdmin: function() {
-            const s = document.getElementById('daily-stats'); s.innerHTML='';
+            const s = document.getElementById('daily-stats'); 
+            s.innerHTML = '';
             [1,2,3].forEach(id => {
-                const c = globalLogs.filter(l=>l && l.roomId===id && l.status==='busy' && (l.type==='status_change'||!l.type) && l.timestamp && new Date(l.timestamp).toDateString()===new Date().toDateString()).length;
-                let rName = `A${id}`; if(id==3) rName="心臓";
-                s.innerHTML+=`<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>${rName}</strong><br>${c}回</div>`;
+                const c = globalLogs.filter(l =>
+                    l && 
+                    l.roomId === id && 
+                    l.status === 'busy' && 
+                    (l.type === 'status_change' || !l.type) && 
+                    l.timestamp && 
+                    new Date(l.timestamp).toDateString() === new Date().toDateString()
+                ).length;
+                let rName = `A${id}`; 
+                if (id==3) rName="心臓";
+                s.innerHTML += `<div style="text-align:center;background:#eee;padding:5px;border-radius:4px"><strong>${rName}</strong><br>${c}回</div>`;
             });
-            const tb = document.getElementById('admin-log-table'); tb.innerHTML='';
-            globalLogs.filter(l=> (l.type==='status_change'||!l.type) && l.timestamp).forEach(l=>{
-                const tr=document.createElement('tr');
-                let rName = `Angio ${l.roomId}`; if(l.roomId==1) rName="血管1"; if(l.roomId==2) rName="血管2"; if(l.roomId==3) rName="心臓";
-                tr.innerHTML=`<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>${rName}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
-                tb.appendChild(tr);
+
+            const opTable = document.getElementById('admin-op-table'); 
+            opTable.innerHTML = '';
+            Object.keys(globalOps).forEach(key => {
+                const op = globalOps[key];
+                const tr = document.createElement('tr');
+                const t = op.updated ? new Date(op.updated).toLocaleTimeString('ja-JP') : '--';
+                let stTxt = op.status === 'green' ? '可' : (op.status === 'yellow' ? '条件' : '不可');
+                if (op.active === false) stTxt = "(解除済)";
+                let stColor = op.active !== false ? (op.status === 'green' ? '#4caf50' : (op.status === 'yellow' ? '#ffc107' : '#e53935')) : '#ccc';
+                tr.innerHTML = `<td>${op.name}</td><td style="color:${stColor};font-weight:bold;">${stTxt}</td><td>${t}</td><td><button class="del-btn" onclick="appLogic.adminDeleteOp('${key}')">削除</button></td>`;
+                opTable.appendChild(tr);
             });
+
+            const tb = document.getElementById('admin-log-table'); 
+            tb.innerHTML = '';
+            globalLogs
+                .filter(l => (l.type === 'status_change' || !l.type) && l.timestamp)
+                .forEach(l => {
+                    const tr = document.createElement('tr');
+                    let rName = `Angio ${l.roomId}`; 
+                    if (l.roomId==1) rName="血管1"; 
+                    if (l.roomId==2) rName="血管2"; 
+                    if (l.roomId==3) rName="心臓";
+                    tr.innerHTML = `<td>${new Date(l.timestamp).toLocaleTimeString('ja-JP')}</td><td>${rName}</td><td>${l.status==='busy'?'赤':'緑'}</td><td>${l.user}</td>`;
+                    tb.appendChild(tr);
+                });
         }
     };
+
     window.onload = () => appLogic.init();
 </script>
 </body>
 </html>
+
