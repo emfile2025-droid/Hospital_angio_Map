@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- 2026/03/29 | v3.2 | PCIオペ: 氏名正規化(NFKC) + 同一氏名は updated 最大をハート表示 -->
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Angio Status Map3 (Tokyo)</title>
+    <title>Angio Status Map3.2 (Tokyo)</title>
     
     <meta name="theme-color" content="#5d4e46">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -147,7 +148,7 @@
 <header>
     <div class="header-left">
         <h1>
-            Angio Status ver3.0
+            Angio Status v3.2 (2026/03/29)
             <span id="connection-status"></span>
             <button class="sm-btn btn-update" onclick="updateApp()">🔄 更新</button>
         </h1>
@@ -358,6 +359,46 @@
         finish: '処置終了',
         exit: '退室準備中'
     };
+
+    /** trim・連続空白統一・NFKC（全角半角など） */
+    function normalizeOpDisplayName(name) {
+        if (name == null || typeof name !== 'string') return '';
+        let s = name.trim().replace(/\s+/g, ' ');
+        try {
+            if (typeof s.normalize === 'function') s = s.normalize('NFKC');
+        } catch (e) { /* ignore */ }
+        return s;
+    }
+
+    /** 氏名が空のレコードは UID 単位で別枠（誤結合防止） */
+    function operatorDisplayDedupeKey(op) {
+        const n = normalizeOpDisplayName(op.name || '');
+        if (n === '') return '\0__uid__' + String(op.uid || '');
+        return n;
+    }
+
+    /** 同一表示キーごとに updated が最大の1件を代表とする */
+    function pickRepresentativeOperators(opArray) {
+        const map = new Map();
+        for (const op of opArray) {
+            const key = operatorDisplayDedupeKey(op);
+            const updated = typeof op.updated === 'number' ? op.updated : 0;
+            const prev = map.get(key);
+            if (!prev) {
+                map.set(key, op);
+                continue;
+            }
+            const prevU = typeof prev.updated === 'number' ? prev.updated : 0;
+            if (updated > prevU) {
+                map.set(key, op);
+            } else if (updated === prevU) {
+                const a = String(op.uid || '');
+                const b = String(prev.uid || '');
+                if (a && b && a < b) map.set(key, op);
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => (a.registrationTime || 0) - (b.registrationTime || 0));
+    }
 
     const appLogic = {
         init: function() {
@@ -1016,16 +1057,18 @@
                 .map(uid => Object.assign({ uid }, ops[uid]))
                 .filter(op => op.active !== false)
                 .sort((a, b) => (a.registrationTime || 0) - (b.registrationTime || 0));
-            
-            opArray.forEach(op => {
+
+            const displayOps = pickRepresentativeOperators(opArray);
+
+            displayOps.forEach(op => {
                 const span = document.createElement('span');
                 span.className = `heart-icon heart-${op.status}`;
                 span.textContent = '♥';
                 container.appendChild(span);
             });
             
-            document.getElementById('op-count').textContent = `${opArray.length}名`;
-            if (opArray.length === 0) {
+            document.getElementById('op-count').textContent = `${displayOps.length}名`;
+            if (displayOps.length === 0) {
                 container.innerHTML = '<span style="color:#ccc; font-size:0.8rem;">登録なし</span>';
             }
         },
