@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 2026/03/29 | v3.2 | PCIオペ: 氏名正規化+ハート統合 | ヘッダー: 狭幅対応・ビルド日は画面非表示 -->
+<!-- 2026/03/29 | v3.2 | PCIオペ: 氏名正規化+ハート統合 | ヘッダー: 狭幅対応 | ボトムナビ: safe-area と高さの競合解消 -->
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,8 @@
             --status-busy: #e53935; 
             --status-cond: #ffc107;
             --primary-color: #005088; 
-            --nav-height: 60px; 
+            /* ボトムナビ実効の底上げ量（padding+タップ行+セーフエリア）。チャットバー・view-section の下余白と共用 */
+            --nav-bar-offset: calc(8px + 48px + 8px + env(safe-area-inset-bottom));
             --header-height: 50px;
         }
 
@@ -92,7 +93,7 @@
         
         /* Main Content */
         .main-content { flex: 1; position: relative; overflow: hidden; background: #f0f2f5; }
-        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 10px; padding-bottom: calc(var(--nav-height) + 20px); display: none; }
+        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 10px; padding-bottom: calc(var(--nav-bar-offset) + 20px); display: none; }
         .view-section.active { display: block; }
 
         /* Map Layout */
@@ -170,13 +171,50 @@
         .timeline-item.log-busy { border-left-color: var(--status-busy); }
         .timeline-item.log-op { border-left-color: var(--status-cond); }
         .time-badge { font-size: 0.7rem; color: #999; display: block; margin-bottom: 2px; }
-        .chat-footer { position: fixed; bottom: var(--nav-height); left: 0; width: 100%; background: #fff; padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 8px; z-index: 15; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        .chat-footer { position: fixed; bottom: var(--nav-bar-offset); left: 0; width: 100%; background: #fff; padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 8px; z-index: 15; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         .chat-footer input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .chat-footer button { background: var(--primary-color); color: white; border: none; padding: 0 15px; border-radius: 4px; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: #fff; border-top: 1px solid #ddd; display: flex; justify-content: space-around; align-items: center; z-index: 20; padding-bottom: env(safe-area-inset-bottom); }
-        .nav-item { flex: 1; text-align: center; color: #888; font-size: 0.7rem; padding: 5px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+        /* 旧: height:60px + padding-bottom:safe が border-box で中身を潰していた。高さは中身+paddingに任せる */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: #fff;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-around;
+            align-items: stretch;
+            z-index: 20;
+            padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+            padding-left: max(0px, env(safe-area-inset-left));
+            padding-right: max(0px, env(safe-area-inset-right));
+            box-sizing: border-box;
+        }
+        .nav-item {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+            color: #888;
+            font-size: 0.7rem;
+            padding: 4px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            min-height: 44px;
+            -webkit-tap-highlight-color: transparent;
+        }
         .nav-item.active { color: var(--primary-color); font-weight: bold; }
-        .nav-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+        .nav-icon {
+            font-size: 1.25rem;
+            line-height: 1;
+            display: block;
+            flex-shrink: 0;
+        }
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
         .modal { background: #fff; padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
