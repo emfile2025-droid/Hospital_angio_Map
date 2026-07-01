@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Angio Low-Read Analysis</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #fff;
+      --text: #263238;
+      --muted: #667085;
+      --line: #dde3ea;
+      --blue: #1769aa;
+      --green: #2e7d32;
+      --orange: #ef8f00;
+      --red: #c62828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 18px; }
+    main { width: min(1120px, 100%); margin: 0 auto; padding: 16px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    select, button {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      padding: 0 10px;
+    }
+    button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .grid { display: grid; gap: 12px; }
+    .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 12px; }
+    .two { grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .kpi .label { color: var(--muted); font-size: 12px; }
+    .kpi .value { font-size: 26px; font-weight: 750; margin-top: 4px; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 650; }
+    .bars { display: grid; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 74px 1fr 54px; gap: 8px; align-items: center; font-size: 13px; }
+    .track { height: 12px; background: #edf1f5; border-radius: 99px; overflow: hidden; }
+    .bar { height: 100%; background: var(--blue); border-radius: 99px; }
+    .green { background: var(--green); }
+    .orange { background: var(--orange); }
+    .red { background: var(--red); }
+    .empty { color: var(--muted); text-align: center; padding: 30px 10px; }
+    @media (max-width: 760px) {
+      header { align-items: flex-start; flex-direction: column; }
+      .kpis, .two { grid-template-columns: 1fr; }
+      main { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Angio Low-Read Analysis</h1>
+    <div class="controls">
+      <select id="period">
+        <option value="7">直近7日</option>
+        <option value="30" selected>直近30日</option>
+        <option value="90">直近90日</option>
+      </select>
+      <button class="primary" onclick="loadStats()">更新</button>
+      <button onclick="location.href='index.html'">戻る</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid kpis">
+      <div class="panel kpi"><div class="label">読み取り予定</div><div class="value" id="readEstimate">-</div></div>
+      <div class="panel kpi"><div class="label">セッション数</div><div class="value" id="sessionCount">-</div></div>
+      <div class="panel kpi"><div class="label">平均稼働時間</div><div class="value" id="avgDuration">-</div></div>
+      <div class="panel kpi"><div class="label">ログ記録数</div><div class="value" id="totalLogs">-</div></div>
+    </section>
+
+    <section class="grid two">
+      <div class="panel">
+        <h2 style="font-size:16px;margin:0 0 10px">日別稼働</h2>
+        <div id="dailyBars" class="bars"></div>
+      </div>
+      <div class="panel">
+        <h2 style="font-size:16px;margin:0 0 10px">Opステータス記録</h2>
+        <div id="opBars" class="bars"></div>
+        <div class="hint">ログ全件ではなく、日次集計 <code>daily_stats</code> だけを読みます。</div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:12px">
+      <h2 style="font-size:16px;margin:0 0 10px">部屋別集計</h2>
+      <div id="roomTable"></div>
+    </section>
+
+    <section class="panel" style="margin-top:12px">
+      <h2 style="font-size:16px;margin:0 0 10px">日次集計テーブル</h2>
+      <div id="dailyTable"></div>
+    </section>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFGAgxhqogLDgzjj6N6UoGnXni7NV2LdI",
+      authDomain: "angiomap-tokyo-region.firebaseapp.com",
+      projectId: "angiomap-tokyo-region",
+      storageBucket: "angiomap-tokyo-region.firebasestorage.app",
+      messagingSenderId: "695591507324",
+      appId: "1:695591507324:web:1c88d7f6f6aff89d4d80f9",
+      measurementId: "G-YFNF0Z1TVK"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function dayKey(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+    function fmtMin(sec) {
+      if (!sec) return '-';
+      const min = Math.round(sec / 60);
+      return `${min}分`;
+    }
+    function num(v) { return Number.isFinite(v) ? v : 0; }
+    function get(obj, path) {
+      return path.split('.').reduce((cur, key) => cur && cur[key] !== undefined ? cur[key] : undefined, obj);
+    }
+    function add(dst, key, value) { dst[key] = (dst[key] || 0) + num(value); }
+
+    function buildDateRange(days) {
+      const end = new Date();
+      end.setHours(0, 0, 0, 0);
+      const start = new Date(end);
+      start.setDate(start.getDate() - days + 1);
+      return { startKey: dayKey(start), endKey: dayKey(end) };
+    }
+
+    async function loadStats() {
+      const days = parseInt(document.getElementById('period').value, 10);
+      const { startKey, endKey } = buildDateRange(days);
+      document.getElementById('readEstimate').textContent = `最大${days}`;
+
+      const snap = await db.collection('daily_stats')
+        .where('date', '>=', startKey)
+        .where('date', '<=', endKey)
+        .orderBy('date', 'asc')
+        .get();
+
+      const rows = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+      render(rows, days);
+    }
+
+    function render(rows, days) {
+      const totals = { logs: 0, sessions: 0, durationSec: 0, rooms: {}, op: { green: 0, yellow: 0, red: 0 } };
+      rows.forEach(row => {
+        totals.logs += num(get(row, 'counts.totalLogs'));
+        totals.sessions += num(get(row, 'sessions.count'));
+        totals.durationSec += num(get(row, 'sessions.durationSec'));
+        ['green', 'yellow', 'red'].forEach(k => add(totals.op, k, get(row, `opStatus.${k}`)));
+        Object.entries(row.rooms || {}).forEach(([roomId, room]) => {
+          if (!totals.rooms[roomId]) totals.rooms[roomId] = { starts: 0, ends: 0, sessionCount: 0, durationSec: 0, nurseStatus: 0 };
+          add(totals.rooms[roomId], 'starts', room.starts);
+          add(totals.rooms[roomId], 'ends', room.ends);
+          add(totals.rooms[roomId], 'sessionCount', room.sessionCount);
+          add(totals.rooms[roomId], 'durationSec', room.durationSec);
+          add(totals.rooms[roomId], 'nurseStatus', room.nurseStatus);
+        });
+      });
+
+      document.getElementById('sessionCount').textContent = totals.sessions;
+      document.getElementById('avgDuration').textContent = totals.sessions ? fmtMin(totals.durationSec / totals.sessions) : '-';
+      document.getElementById('totalLogs').textContent = totals.logs;
+
+      renderDailyBars(rows);
+      renderOpBars(totals.op);
+      renderRoomTable(totals.rooms);
+      renderDailyTable(rows, days);
+    }
+
+    function renderDailyBars(rows) {
+      const el = document.getElementById('dailyBars');
+      if (!rows.length) {
+        el.innerHTML = '<div class="empty">まだ日次集計がありません。新しい操作ログが記録されると表示されます。</div>';
+        return;
+      }
+      const max = Math.max(1, ...rows.map(r => num(get(r, 'sessions.count'))));
+      el.innerHTML = rows.map(r => {
+        const v = num(get(r, 'sessions.count'));
+        return `<div class="bar-row"><div>${r.date}</div><div class="track"><div class="bar" style="width:${Math.round(v / max * 100)}%"></div></div><div>${v}件</div></div>`;
+      }).join('');
+    }
+
+    function renderOpBars(op) {
+      const labels = { green: '可', yellow: '条件', red: '不可' };
+      const cls = { green: 'green', yellow: 'orange', red: 'red' };
+      const max = Math.max(1, op.green || 0, op.yellow || 0, op.red || 0);
+      document.getElementById('opBars').innerHTML = ['green', 'yellow', 'red'].map(k => {
+        const v = op[k] || 0;
+        return `<div class="bar-row"><div>${labels[k]}</div><div class="track"><div class="bar ${cls[k]}" style="width:${Math.round(v / max * 100)}%"></div></div><div>${v}件</div></div>`;
+      }).join('');
+    }
+
+    function renderRoomTable(rooms) {
+      const ids = Object.keys(rooms).sort((a, b) => Number(a) - Number(b));
+      if (!ids.length) {
+        document.getElementById('roomTable').innerHTML = '<div class="empty">部屋別集計はまだありません。</div>';
+        return;
+      }
+      document.getElementById('roomTable').innerHTML = `<table><thead><tr><th>部屋</th><th>開始</th><th>終了</th><th>完了セッション</th><th>平均時間</th><th>Ns記録</th></tr></thead><tbody>${ids.map(id => {
+        const r = rooms[id];
+        const avg = r.sessionCount ? r.durationSec / r.sessionCount : 0;
+        return `<tr><td>室${id}</td><td>${r.starts || 0}</td><td>${r.ends || 0}</td><td>${r.sessionCount || 0}</td><td>${fmtMin(avg)}</td><td>${r.nurseStatus || 0}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    }
+
+    function renderDailyTable(rows, days) {
+      if (!rows.length) {
+        document.getElementById('dailyTable').innerHTML = `<div class="empty">選択期間${days}日には集計済みデータがありません。過去ログを反映するには一度だけバックフィル処理が必要です。</div>`;
+        return;
+      }
+      document.getElementById('dailyTable').innerHTML = `<table><thead><tr><th>日付</th><th>ログ</th><th>開始/終了</th><th>セッション</th><th>合計時間</th><th>Op</th><th>Ns</th></tr></thead><tbody>${rows.map(r => {
+        return `<tr><td>${r.date}</td><td>${num(get(r, 'counts.totalLogs'))}</td><td>${num(get(r, 'counts.statusChanges'))}</td><td>${num(get(r, 'sessions.count'))}</td><td>${fmtMin(num(get(r, 'sessions.durationSec')))}</td><td>${num(get(r, 'counts.opStatus'))}</td><td>${num(get(r, 'counts.nurseStatus'))}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    }
+
+    auth.signInAnonymously().then(loadStats).catch(err => {
+      document.getElementById('dailyTable').innerHTML = `<div class="empty">Firebase接続エラー: ${String(err.message || err)}</div>`;
+    });
+  </script>
+</body>
+</html>

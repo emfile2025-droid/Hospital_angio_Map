@@ -270,12 +270,13 @@
     <div class="header-left">
         <div class="header-brand">
             <h1 class="header-app-title">Angio Status <span class="header-ver">v3.2</span></h1>
-            <div class="header-title-actions">
-                <span id="connection-status" title="接続"></span>
-                <button type="button" class="sm-btn btn-update" onclick="updateApp()">🔄 更新</button>
-            </div>
-        </div>
-    </div>
+	            <div class="header-title-actions">
+	                <span id="connection-status" title="接続"></span>
+	                <button type="button" class="sm-btn btn-update" onclick="updateApp()">🔄 更新</button>
+	                <button type="button" class="sm-btn" onclick="window.open('angio_dashboard_lowread.html', '_blank', 'noopener')">分析</button>
+	            </div>
+	        </div>
+	    </div>
     <div class="header-right">
         <div id="clock">--/-- --:--</div>
         <div id="user-display" class="header-user-display">Guest</div>
@@ -464,8 +465,52 @@
     };
 
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
+	    const db = firebase.firestore();
+	    const auth = firebase.auth();
+
+	    function localDayKey(ts) {
+	        const d = new Date(ts);
+	        const y = d.getFullYear();
+	        const m = String(d.getMonth() + 1).padStart(2, '0');
+	        const day = String(d.getDate()).padStart(2, '0');
+	        return `${y}-${m}-${day}`;
+	    }
+
+	    function buildDailyStatsUpdate(log) {
+	        if (!log || !Number.isFinite(log.timestamp)) return null;
+	        const inc = firebase.firestore.FieldValue.increment;
+	        const update = {
+	            date: localDayKey(log.timestamp),
+	            updatedAt: log.timestamp,
+	            'counts.totalLogs': inc(1)
+	        };
+
+	        if (log.type === 'status_change') {
+	            update['counts.statusChanges'] = inc(1);
+	            if (log.roomId !== undefined && log.roomId !== null) {
+	                const roomKey = String(log.roomId);
+	                update[`rooms.${roomKey}.statusChanges`] = inc(1);
+	                if (log.status === 'busy') update[`rooms.${roomKey}.starts`] = inc(1);
+	                if (log.status === 'ready') update[`rooms.${roomKey}.ends`] = inc(1);
+	                if (Number.isFinite(log.durationSec)) {
+	                    update[`rooms.${roomKey}.sessionCount`] = inc(1);
+	                    update[`rooms.${roomKey}.durationSec`] = inc(log.durationSec);
+	                    update['sessions.count'] = inc(1);
+	                    update['sessions.durationSec'] = inc(log.durationSec);
+	                }
+	            }
+	        } else if (log.type === 'nurse_status') {
+	            update['counts.nurseStatus'] = inc(1);
+	            if (log.roomId !== undefined && log.roomId !== null) {
+	                update[`rooms.${String(log.roomId)}.nurseStatus`] = inc(1);
+	            }
+	        } else if (log.type === 'op_status') {
+	            update['counts.opStatus'] = inc(1);
+	            if (log.status) update[`opStatus.${String(log.status)}`] = inc(1);
+	        }
+
+	        return update;
+	    }
 
     const USER_KEY = "angio_sys_user_v3";
     const HISTORY_KEY = "angio_user_history";
@@ -794,14 +839,28 @@
                 location.reload();
             }
         },
-        adminDeleteOp: function(uid) {
-            if (confirm('このオペレーターを強制削除しますか？\n（復元できません）')) {
-                db.collection('operators').doc(uid).delete();
-            }
-        },
-        updateOpStatus: function(color) {
-            if (!currentUser.uid) return;
-            db.collection('operators').doc(currentUser.uid).get().then(doc => {
+	        adminDeleteOp: function(uid) {
+	            if (confirm('このオペレーターを強制削除しますか？\n（復元できません）')) {
+	                db.collection('operators').doc(uid).delete();
+	            }
+	        },
+	        addLog: function(log) {
+	            const cleanLog = Object.assign({}, log);
+	            const statsUpdate = buildDailyStatsUpdate(cleanLog);
+	            if (!statsUpdate) return db.collection('logs').add(cleanLog);
+
+	            const batch = db.batch();
+	            batch.set(db.collection('logs').doc(), cleanLog);
+	            batch.set(db.collection('daily_stats').doc(statsUpdate.date), statsUpdate, { merge: true });
+
+	            return batch.commit().catch(err => {
+	                console.warn('daily_stats の更新に失敗したため、監査ログだけ保存します:', err);
+	                return db.collection('logs').add(cleanLog);
+	            });
+	        },
+	        updateOpStatus: function(color) {
+	            if (!currentUser.uid) return;
+	            db.collection('operators').doc(currentUser.uid).get().then(doc => {
                 const current = doc.exists ? doc.data() : {};
                 const now = Date.now();
                 const newData = {
@@ -812,10 +871,10 @@
                     active: true 
                 };
                 db.collection('operators').doc(currentUser.uid).set(newData);
-                db.collection('logs').add({
-                    type: 'op_status',
-                    status: color,
-                    uid: currentUser.uid,
+	                this.addLog({
+	                    type: 'op_status',
+	                    status: color,
+	                    uid: currentUser.uid,
                     timestamp: now
                 });
             });
@@ -899,10 +958,10 @@
 
                 db.collection('rooms').doc(roomDocId).set(roomUpdate, { merge: true });
 
-                db.collection('logs').add(Object.assign({}, baseLog, {
-                    event: 'start',
-                    sessionId: sessionId
-                }));
+	                this.addLog(Object.assign({}, baseLog, {
+	                    event: 'start',
+	                    sessionId: sessionId
+	                }));
                 return;
             }
 
@@ -927,14 +986,14 @@
                 if (durationSec !== null) {
                     endLog.durationSec = durationSec;
                 }
-                db.collection('logs').add(endLog);
-                return;
-            }
+	                this.addLog(endLog);
+	                return;
+	            }
 
             // それ以外の状態遷移（想定外ケース）は従来どおり最低限のログだけ残す
             db.collection('rooms').doc(roomDocId).set(roomUpdate, { merge: true });
-            db.collection('logs').add(baseLog);
-        },
+	            this.addLog(baseLog);
+	        },
         updateNurseStatus: function(roomId, key, ev) {
             if (ev && typeof ev.stopPropagation === 'function') {
                 ev.stopPropagation();
@@ -1253,4 +1312,3 @@
 </script>
 </body>
 </html>
-
