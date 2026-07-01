@@ -476,9 +476,14 @@
 	        return `${y}-${m}-${day}`;
 	    }
 
+	    function localHourKey(ts) {
+	        return String(new Date(ts).getHours()).padStart(2, '0');
+	    }
+
 	    function buildDailyStatsUpdate(log) {
 	        if (!log || !Number.isFinite(log.timestamp)) return null;
 	        const inc = firebase.firestore.FieldValue.increment;
+	        const hourKey = localHourKey(log.timestamp);
 	        const update = {
 	            date: localDayKey(log.timestamp),
 	            updatedAt: log.timestamp,
@@ -487,18 +492,32 @@
 
 	        if (log.type === 'status_change') {
 	            update['counts.statusChanges'] = inc(1);
-	            if (log.roomId !== undefined && log.roomId !== null) {
-	                const roomKey = String(log.roomId);
-	                update[`rooms.${roomKey}.statusChanges`] = inc(1);
-	                if (log.status === 'busy') update[`rooms.${roomKey}.starts`] = inc(1);
-	                if (log.status === 'ready') update[`rooms.${roomKey}.ends`] = inc(1);
-	                if (Number.isFinite(log.durationSec)) {
-	                    update[`rooms.${roomKey}.sessionCount`] = inc(1);
-	                    update[`rooms.${roomKey}.durationSec`] = inc(log.durationSec);
-	                    update['sessions.count'] = inc(1);
-	                    update['sessions.durationSec'] = inc(log.durationSec);
-	                }
-	            }
+		            if (log.roomId !== undefined && log.roomId !== null) {
+		                const roomKey = String(log.roomId);
+		                update[`rooms.${roomKey}.statusChanges`] = inc(1);
+		                update[`hours.${hourKey}.statusChanges`] = inc(1);
+		                update[`hours.${hourKey}.rooms.${roomKey}.statusChanges`] = inc(1);
+		                if (log.status === 'busy') {
+		                    update[`rooms.${roomKey}.starts`] = inc(1);
+		                    update[`hours.${hourKey}.starts`] = inc(1);
+		                    update[`hours.${hourKey}.rooms.${roomKey}.starts`] = inc(1);
+		                }
+		                if (log.status === 'ready') {
+		                    update[`rooms.${roomKey}.ends`] = inc(1);
+		                    update[`hours.${hourKey}.ends`] = inc(1);
+		                    update[`hours.${hourKey}.rooms.${roomKey}.ends`] = inc(1);
+		                }
+		                if (Number.isFinite(log.durationSec)) {
+		                    update[`rooms.${roomKey}.sessionCount`] = inc(1);
+		                    update[`rooms.${roomKey}.durationSec`] = inc(log.durationSec);
+		                    update['sessions.count'] = inc(1);
+		                    update['sessions.durationSec'] = inc(log.durationSec);
+		                    update[`hours.${hourKey}.sessionCount`] = inc(1);
+		                    update[`hours.${hourKey}.durationSec`] = inc(log.durationSec);
+		                    update[`hours.${hourKey}.rooms.${roomKey}.sessionCount`] = inc(1);
+		                    update[`hours.${hourKey}.rooms.${roomKey}.durationSec`] = inc(log.durationSec);
+		                }
+		            }
 	        } else if (log.type === 'nurse_status') {
 	            update['counts.nurseStatus'] = inc(1);
 	            if (log.roomId !== undefined && log.roomId !== null) {
