@@ -115,7 +115,8 @@
   <header>
     <h1>Angio Low-Read Analysis</h1>
     <div class="controls">
-      <select id="period">
+      <select id="period" onchange="loadStats()">
+        <option value="month">今月</option>
         <option value="7">直近7日</option>
         <option value="30" selected>直近30日</option>
         <option value="90">直近90日</option>
@@ -194,18 +195,24 @@
     }
     function add(dst, key, value) { dst[key] = (dst[key] || 0) + num(value); }
 
-    function buildDateRange(days) {
+    function buildDateRange(mode) {
       const end = new Date();
       end.setHours(0, 0, 0, 0);
       const start = new Date(end);
-      start.setDate(start.getDate() - days + 1);
-      return { startKey: dayKey(start), endKey: dayKey(end) };
+      if (mode === 'month') {
+        start.setDate(1);
+      } else {
+        const days = parseInt(mode, 10);
+        start.setDate(start.getDate() - days + 1);
+      }
+      const estimatedReads = Math.max(1, Math.round((end - start) / 86400000) + 1);
+      return { startKey: dayKey(start), endKey: dayKey(end), estimatedReads };
     }
 
     async function loadStats() {
-      const days = parseInt(document.getElementById('period').value, 10);
-      const { startKey, endKey } = buildDateRange(days);
-      document.getElementById('readEstimate').textContent = `最大${days}`;
+      const mode = document.getElementById('period').value;
+      const { startKey, endKey, estimatedReads } = buildDateRange(mode);
+      document.getElementById('readEstimate').textContent = `最大${estimatedReads}`;
 
       const snap = await db.collection('daily_stats')
         .where('date', '>=', startKey)
@@ -214,7 +221,7 @@
         .get();
 
       const rows = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
-      render(rows, days);
+      render(rows, estimatedReads);
     }
 
     function render(rows, days) {
