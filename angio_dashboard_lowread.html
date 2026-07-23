@@ -51,6 +51,7 @@
       padding: 0 10px;
     }
     button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+    button.secondary { background: #fff; color: var(--blue); border-color: var(--blue); }
     .grid { display: grid; gap: 12px; }
     .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 12px; }
     .two { grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); }
@@ -122,6 +123,7 @@
         <option value="90">直近90日</option>
       </select>
       <button class="primary" onclick="loadStats()">更新</button>
+      <button class="secondary" onclick="rebuildSelectedPeriod()">選択期間を再集計</button>
       <button onclick="location.href='index.html'">戻る</button>
     </div>
   </header>
@@ -159,6 +161,7 @@
 
     <section class="panel" style="margin-top:12px">
       <h2 style="font-size:16px;margin:0 0 10px">日次集計テーブル</h2>
+      <div id="rebuildStatus" class="hint"></div>
       <div id="dailyTable"></div>
     </section>
   </main>
@@ -207,6 +210,143 @@
       }
       const estimatedReads = Math.max(1, Math.round((end - start) / 86400000) + 1);
       return { startKey: dayKey(start), endKey: dayKey(end), estimatedReads };
+    }
+
+    function buildMsRange(startKey, endKey) {
+      const start = dateFromKey(startKey);
+      const endExclusive = dateFromKey(endKey);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+      return { startMs: start.getTime(), endMs: endExclusive.getTime() };
+    }
+
+    function eachDateKey(startKey, endKey) {
+      const keys = [];
+      const d = dateFromKey(startKey);
+      const end = dateFromKey(endKey);
+      while (d <= end) {
+        keys.push(dayKey(d));
+        d.setDate(d.getDate() + 1);
+      }
+      return keys;
+    }
+
+    function emptyDailyStats(date) {
+      return {
+        date,
+        rebuiltAt: Date.now(),
+        updatedAt: 0,
+        counts: { totalLogs: 0, statusChanges: 0, nurseStatus: 0, opStatus: 0 },
+        sessions: { count: 0, durationSec: 0 },
+        rooms: {},
+        hours: {},
+        opStatus: { green: 0, yellow: 0, red: 0 }
+      };
+    }
+
+    function ensureRoom(row, roomId) {
+      const roomKey = String(roomId);
+      if (!row.rooms[roomKey]) row.rooms[roomKey] = { starts: 0, ends: 0, statusChanges: 0, sessionCount: 0, durationSec: 0, nurseStatus: 0 };
+      return row.rooms[roomKey];
+    }
+
+    function ensureHour(row, hourKey) {
+      if (!row.hours[hourKey]) row.hours[hourKey] = { starts: 0, ends: 0, statusChanges: 0, sessionCount: 0, durationSec: 0, rooms: {} };
+      return row.hours[hourKey];
+    }
+
+    function ensureHourRoom(row, hourKey, roomId) {
+      const hour = ensureHour(row, hourKey);
+      const roomKey = String(roomId);
+      if (!hour.rooms[roomKey]) hour.rooms[roomKey] = { starts: 0, ends: 0, statusChanges: 0, sessionCount: 0, durationSec: 0 };
+      return hour.rooms[roomKey];
+    }
+
+    function addLogToStats(rowsByDate, log) {
+      if (!log || !Number.isFinite(log.timestamp)) return;
+      const date = dayKey(new Date(log.timestamp));
+      const row = rowsByDate[date] || (rowsByDate[date] = emptyDailyStats(date));
+      const hourKey = pad(new Date(log.timestamp).getHours());
+      row.updatedAt = Math.max(row.updatedAt || 0, log.timestamp);
+      row.counts.totalLogs += 1;
+
+      if (log.type === 'status_change') {
+        row.counts.statusChanges += 1;
+        if (log.roomId !== undefined && log.roomId !== null) {
+          const room = ensureRoom(row, log.roomId);
+          const hour = ensureHour(row, hourKey);
+          const hourRoom = ensureHourRoom(row, hourKey, log.roomId);
+          room.statusChanges += 1;
+          hour.statusChanges += 1;
+          hourRoom.statusChanges += 1;
+          if (log.status === 'busy') {
+            room.starts += 1;
+            hour.starts += 1;
+            hourRoom.starts += 1;
+          }
+          if (log.status === 'ready') {
+            room.ends += 1;
+            hour.ends += 1;
+            hourRoom.ends += 1;
+          }
+          if (Number.isFinite(log.durationSec)) {
+            room.sessionCount += 1;
+            room.durationSec += log.durationSec;
+            row.sessions.count += 1;
+            row.sessions.durationSec += log.durationSec;
+            hour.sessionCount += 1;
+            hour.durationSec += log.durationSec;
+            hourRoom.sessionCount += 1;
+            hourRoom.durationSec += log.durationSec;
+          }
+        }
+      } else if (log.type === 'nurse_status') {
+        row.counts.nurseStatus += 1;
+        if (log.roomId !== undefined && log.roomId !== null) ensureRoom(row, log.roomId).nurseStatus += 1;
+      } else if (log.type === 'op_status') {
+        row.counts.opStatus += 1;
+        if (log.status && row.opStatus[log.status] !== undefined) row.opStatus[log.status] += 1;
+      }
+    }
+
+    async function rebuildSelectedPeriod() {
+      const mode = document.getElementById('period').value;
+      const { startKey, endKey, estimatedReads } = buildDateRange(mode);
+      const ok = confirm(`${startKey} から ${endKey} までのログを1回だけ読み、日次集計を作り直します。\\n通常の分析表示はこの後また日数分Readに戻ります。`);
+      if (!ok) return;
+
+      const status = document.getElementById('rebuildStatus');
+      status.textContent = '再集計中です。ログを期間指定で読み込んでいます...';
+      const { startMs, endMs } = buildMsRange(startKey, endKey);
+      try {
+        const snap = await db.collection('logs')
+          .where('timestamp', '>=', startMs)
+          .where('timestamp', '<', endMs)
+          .orderBy('timestamp', 'asc')
+          .get();
+
+        const rowsByDate = {};
+        eachDateKey(startKey, endKey).forEach(date => { rowsByDate[date] = emptyDailyStats(date); });
+        snap.docs.forEach(doc => addLogToStats(rowsByDate, doc.data()));
+
+        const rows = Object.values(rowsByDate).sort((a, b) => a.date.localeCompare(b.date));
+        let batch = db.batch();
+        let writes = 0;
+        for (const row of rows) {
+          batch.set(db.collection('daily_stats').doc(row.date), row);
+          writes += 1;
+          if (writes >= 450) {
+            await batch.commit();
+            batch = db.batch();
+            writes = 0;
+          }
+        }
+        if (writes) await batch.commit();
+
+        status.textContent = `再集計完了: ログ${snap.size}件、日次集計${rows.length}日分を更新しました。`;
+        render(rows, estimatedReads);
+      } catch (err) {
+        status.textContent = `再集計エラー: ${String(err.message || err)}`;
+      }
     }
 
     async function loadStats() {
